@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+trips.db
+trips.db-shm
+trips.db-wal
+*.log
