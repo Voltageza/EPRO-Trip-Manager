@@ -18,7 +18,17 @@ export default function SyncButton({ date, onSynced }) {
 
   return (
     <button className="sync-btn" onClick={handleSync} disabled={syncing}>
-      {syncing ? 'Syncing...' : 'Sync from Cartrack'}
+      {syncing ? (
+        <>
+          <span className="sync-spinner" />
+          Syncing...
+        </>
+      ) : (
+        <>
+          <span className="sync-icon">{'\u21BB'}</span>
+          Sync from Cartrack
+        </>
+      )}
     </button>
   );
 }

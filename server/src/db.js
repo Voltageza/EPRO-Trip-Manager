@@ -41,6 +41,16 @@ if (!tripsColumns.find(c => c.name === 'is_business')) {
   db.exec(`ALTER TABLE trips ADD COLUMN is_business INTEGER DEFAULT 1`);
 }
 
+// Migration: add merged_into column if missing
+if (!tripsColumns.find(c => c.name === 'merged_into')) {
+  db.exec(`ALTER TABLE trips ADD COLUMN merged_into INTEGER`);
+}
+
+// Migration: add merge_snapshot column if missing
+if (!tripsColumns.find(c => c.name === 'merge_snapshot')) {
+  db.exec(`ALTER TABLE trips ADD COLUMN merge_snapshot TEXT`);
+}
+
 // New table: trip_spares
 db.exec(`
   CREATE TABLE IF NOT EXISTS trip_spares (

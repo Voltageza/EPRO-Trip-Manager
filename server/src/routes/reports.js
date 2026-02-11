@@ -8,7 +8,7 @@ const getReport = db.prepare(`
 `);
 
 const getTripsForDate = db.prepare(`
-  SELECT * FROM trips WHERE trip_date = ? ORDER BY start_time ASC
+  SELECT * FROM trips WHERE trip_date = ? AND merged_into IS NULL ORDER BY start_time ASC
 `);
 
 const upsertReport = db.prepare(`

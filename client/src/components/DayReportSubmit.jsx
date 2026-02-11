@@ -36,28 +36,25 @@ export default function DayReportSubmit({ date, trips }) {
 
   return (
     <div className={`day-report ${submitted ? 'day-report--submitted' : ''}`}>
+      <div className="day-report-header">Day Summary</div>
       <div className="day-report-stats">
-        <div className="stat-item">
-          <span className="stat-value">{trips.length}</span>
-          <span className="stat-label">Trips</span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-value">{totalKm.toFixed(1)}</span>
-          <span className="stat-label">KM</span>
-        </div>
-        <div className="stat-item stat-business">
-          <span className="stat-value">{businessCount}</span>
-          <span className="stat-label">Business</span>
-        </div>
-        <div className="stat-item stat-private">
-          <span className="stat-value">{privateCount}</span>
-          <span className="stat-label">Private</span>
-        </div>
+        <span className="stat-badge">
+          <span className="stat-value">{trips.length}</span> trips
+        </span>
+        <span className="stat-badge">
+          <span className="stat-value">{totalKm.toFixed(1)}</span> km
+        </span>
+        <span className="stat-badge business">
+          <span className="stat-value">{businessCount}</span> business
+        </span>
+        <span className="stat-badge private">
+          <span className="stat-value">{privateCount}</span> private
+        </span>
       </div>
 
       <div className="day-report-notes">
         <textarea
-          placeholder="Day notes (optional)"
+          placeholder="Add notes for this day (optional)..."
           value={notes}
           onChange={e => { setNotes(e.target.value); setSubmitted(false); }}
           rows={2}
@@ -65,6 +62,7 @@ export default function DayReportSubmit({ date, trips }) {
       </div>
 
       <div className="day-report-actions">
+        {submitted && <span className="day-report-saved">Submitted</span>}
         <button
           className="day-report-btn"
           onClick={handleSubmit}
@@ -72,7 +70,6 @@ export default function DayReportSubmit({ date, trips }) {
         >
           {submitting ? 'Submitting...' : submitted ? 'Update Report' : 'Submit Day Report'}
         </button>
-        {submitted && <span className="day-report-saved">Submitted</span>}
       </div>
     </div>
   );

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchTrips } from './api/tripsApi.js';
 import TripDayGroup from './components/TripDayGroup.jsx';
-import DatePicker from './components/DatePicker.jsx';
-import SyncButton from './components/SyncButton.jsx';
+import Sidebar from './components/Sidebar.jsx';
 import StatusBar from './components/StatusBar.jsx';
 
 function getYesterday() {
@@ -16,6 +15,7 @@ export default function App() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ message: '', type: 'info' });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const loadTrips = useCallback(async (targetDate) => {
     setLoading(true);
@@ -39,6 +39,7 @@ export default function App() {
 
   function handleDateChange(newDate) {
     setDate(newDate);
+    setSidebarOpen(false);
   }
 
   function handleSyncResult(result) {
@@ -54,6 +55,11 @@ export default function App() {
     setTrips(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
   }
 
+  // KPI computations
+  const totalKm = trips.reduce((s, t) => s + (t.distance_km || 0), 0);
+  const businessCount = trips.filter(t => t.is_business !== 0).length;
+  const privateCount = trips.length - businessCount;
+
   // Group trips by date
   const grouped = {};
   for (const trip of trips) {
@@ -64,21 +70,36 @@ export default function App() {
   const sortedDates = Object.keys(grouped).sort();
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="app-brand">
-          <h1>E-Pro Trip Manager</h1>
-          <span className="app-subtitle">Fleet Tracking & Reports</span>
-        </div>
-        <div className="controls">
-          <DatePicker value={date} onChange={handleDateChange} />
-          <SyncButton date={date} onSynced={handleSyncResult} />
-        </div>
-      </header>
+    <div className="dashboard">
+      <Sidebar
+        date={date}
+        onDateChange={handleDateChange}
+        onSynced={handleSyncResult}
+        trips={trips}
+        open={sidebarOpen}
+        onToggle={() => setSidebarOpen(o => !o)}
+      />
 
-      <StatusBar message={status.message} type={status.type} />
+      <main className="main-content">
+        <div className="kpi-row">
+          <div className="kpi-card">
+            <div className="kpi-label">Trips</div>
+            <div className="kpi-value">{trips.length}</div>
+          </div>
+          <div className="kpi-card">
+            <div className="kpi-label">Distance</div>
+            <div className="kpi-value km">{totalKm.toFixed(1)} km</div>
+          </div>
+          <div className="kpi-card">
+            <div className="kpi-label">Business</div>
+            <div className="kpi-value business">{businessCount}</div>
+          </div>
+          <div className="kpi-card">
+            <div className="kpi-label">Private</div>
+            <div className="kpi-value private">{privateCount}</div>
+          </div>
+        </div>
 
-      <main>
         {loading && (
           <div className="loading">
             <div className="spinner"></div>
@@ -94,9 +115,12 @@ export default function App() {
             date={d}
             trips={grouped[d]}
             onTripUpdate={handleTripUpdate}
+            onTripsReload={() => loadTrips(date)}
           />
         ))}
       </main>
+
+      <StatusBar message={status.message} type={status.type} />
     </div>
   );
 }

@@ -5,7 +5,7 @@ const router = Router();
 
 const getTrips = db.prepare(`
   SELECT * FROM trips
-  WHERE trip_date >= ? AND trip_date <= ?
+  WHERE trip_date >= ? AND trip_date <= ? AND merged_into IS NULL
   ORDER BY start_time ASC
 `);
 
@@ -24,6 +24,10 @@ const deleteSpare = db.prepare(`
   DELETE FROM trip_spares WHERE id = ? AND trip_id = ?
 `);
 
+const getMergedFrom = db.prepare(`
+  SELECT id FROM trips WHERE merged_into = ?
+`);
+
 // GET /api/trips?from=YYYY-MM-DD&to=YYYY-MM-DD
 router.get('/', (req, res) => {
   const today = new Date();
@@ -36,13 +40,16 @@ router.get('/', (req, res) => {
 
   const trips = getTrips.all(from, to);
 
-  // Embed spares into each trip
-  const tripsWithSpares = trips.map(trip => ({
+  // Embed spares and merged_from into each trip
+  const tripsWithExtras = trips.map(trip => ({
     ...trip,
     spares: getSparesByTrip.all(trip.id),
+    merged_from: trip.merge_snapshot
+      ? getMergedFrom.all(trip.id).map(r => r.id)
+      : [],
   }));
 
-  res.json(tripsWithSpares);
+  res.json(tripsWithExtras);
 });
 
 // PATCH /api/trips/:id — partial update (user_description, is_business)
@@ -121,6 +128,189 @@ router.delete('/:id/spares/:spareId', (req, res) => {
   }
 
   res.json({ deleted: true });
+});
+
+// POST /api/trips/merge — merge 2+ trips into one
+router.post('/merge', (req, res) => {
+  const { tripIds } = req.body;
+
+  if (!Array.isArray(tripIds) || tripIds.length < 2) {
+    return res.status(400).json({ error: 'At least 2 tripIds are required' });
+  }
+
+  try {
+    const result = db.transaction(() => {
+      // Fetch all trips
+      const trips = tripIds.map(id => {
+        const t = getTrip.get(id);
+        if (!t) throw new Error(`Trip ${id} not found`);
+        return t;
+      });
+
+      // Validate: same date
+      const dates = new Set(trips.map(t => t.trip_date));
+      if (dates.size > 1) throw new Error('All trips must be on the same date');
+
+      // Validate: none already absorbed or primary
+      for (const t of trips) {
+        if (t.merged_into) throw new Error(`Trip ${t.id} is already absorbed into another trip`);
+        if (t.merge_snapshot) throw new Error(`Trip ${t.id} is already a merged primary trip`);
+      }
+
+      // Primary = earliest start_time
+      trips.sort((a, b) => a.start_time.localeCompare(b.start_time));
+      const primary = trips[0];
+      const absorbed = trips.slice(1);
+
+      // Build snapshot for reversibility
+      const snapshot = {
+        original: {
+          distance_km: primary.distance_km,
+          duration_minutes: primary.duration_minutes,
+          start_time: primary.start_time,
+          end_time: primary.end_time,
+          start_address: primary.start_address,
+          end_address: primary.end_address,
+          start_lat: primary.start_lat,
+          start_lng: primary.start_lng,
+          end_lat: primary.end_lat,
+          end_lng: primary.end_lng,
+          max_speed: primary.max_speed,
+          avg_speed: primary.avg_speed,
+          idle_time_minutes: primary.idle_time_minutes,
+          user_description: primary.user_description,
+          is_business: primary.is_business,
+        },
+        absorbed_ids: absorbed.map(t => t.id),
+        spare_source_map: {},
+      };
+
+      // Record spare ownership before moving
+      for (const t of absorbed) {
+        const spares = getSparesByTrip.all(t.id);
+        if (spares.length > 0) {
+          snapshot.spare_source_map[t.id] = spares.map(s => s.id);
+        }
+      }
+
+      // Compute merged values
+      const allTrips = [primary, ...absorbed];
+      const totalDistance = allTrips.reduce((s, t) => s + (t.distance_km || 0), 0);
+      const totalDuration = allTrips.reduce((s, t) => s + (t.duration_minutes || 0), 0);
+      const totalIdle = allTrips.reduce((s, t) => s + (t.idle_time_minutes || 0), 0);
+      const maxSpeed = Math.max(...allTrips.map(t => t.max_speed || 0));
+      const last = allTrips[allTrips.length - 1];
+      const isBusiness = allTrips.some(t => t.is_business !== 0) ? 1 : 0;
+      const descriptions = allTrips
+        .map(t => t.user_description || '')
+        .filter(Boolean);
+      const mergedDesc = descriptions.join(' | ');
+
+      // Update primary with merged values
+      const now = new Date().toISOString();
+      db.prepare(`
+        UPDATE trips SET
+          distance_km = ?, duration_minutes = ?, end_time = ?,
+          end_address = ?, end_lat = ?, end_lng = ?,
+          max_speed = ?, idle_time_minutes = ?,
+          is_business = ?, user_description = ?,
+          merge_snapshot = ?, updated_at = ?
+        WHERE id = ?
+      `).run(
+        totalDistance, totalDuration, last.end_time,
+        last.end_address, last.end_lat, last.end_lng,
+        maxSpeed, totalIdle,
+        isBusiness, mergedDesc,
+        JSON.stringify(snapshot), now,
+        primary.id
+      );
+
+      // Move spares from absorbed trips to primary
+      for (const t of absorbed) {
+        db.prepare('UPDATE trip_spares SET trip_id = ? WHERE trip_id = ?').run(primary.id, t.id);
+      }
+
+      // Mark absorbed trips
+      for (const t of absorbed) {
+        db.prepare('UPDATE trips SET merged_into = ?, updated_at = ? WHERE id = ?').run(primary.id, now, t.id);
+      }
+
+      // Return updated primary
+      const updated = getTrip.get(primary.id);
+      updated.spares = getSparesByTrip.all(updated.id);
+      updated.merged_from = absorbed.map(t => t.id);
+      return updated;
+    })();
+
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/trips/:id/unmerge — reverse a merge
+router.post('/:id/unmerge', (req, res) => {
+  try {
+    const result = db.transaction(() => {
+      const trip = getTrip.get(req.params.id);
+      if (!trip) throw new Error('Trip not found');
+      if (!trip.merge_snapshot) throw new Error('This trip is not a merged primary');
+
+      const snapshot = JSON.parse(trip.merge_snapshot);
+      const now = new Date().toISOString();
+
+      // Restore primary's original fields
+      const orig = snapshot.original;
+      db.prepare(`
+        UPDATE trips SET
+          distance_km = ?, duration_minutes = ?,
+          start_time = ?, end_time = ?,
+          start_address = ?, end_address = ?,
+          start_lat = ?, start_lng = ?,
+          end_lat = ?, end_lng = ?,
+          max_speed = ?, avg_speed = ?,
+          idle_time_minutes = ?,
+          user_description = ?, is_business = ?,
+          merge_snapshot = NULL, updated_at = ?
+        WHERE id = ?
+      `).run(
+        orig.distance_km, orig.duration_minutes,
+        orig.start_time, orig.end_time,
+        orig.start_address, orig.end_address,
+        orig.start_lat, orig.start_lng,
+        orig.end_lat, orig.end_lng,
+        orig.max_speed, orig.avg_speed,
+        orig.idle_time_minutes,
+        orig.user_description, orig.is_business,
+        now, trip.id
+      );
+
+      // Move spares back to original trips
+      for (const [origTripId, spareIds] of Object.entries(snapshot.spare_source_map)) {
+        for (const spareId of spareIds) {
+          db.prepare('UPDATE trip_spares SET trip_id = ? WHERE id = ?').run(Number(origTripId), spareId);
+        }
+      }
+
+      // Clear merged_into on absorbed trips
+      for (const absorbedId of snapshot.absorbed_ids) {
+        db.prepare('UPDATE trips SET merged_into = NULL, updated_at = ? WHERE id = ?').run(now, absorbedId);
+      }
+
+      // Return all separated trips
+      const allIds = [trip.id, ...snapshot.absorbed_ids];
+      return allIds.map(id => {
+        const t = getTrip.get(id);
+        t.spares = getSparesByTrip.all(t.id);
+        t.merged_from = [];
+        return t;
+      });
+    })();
+
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 export default router;

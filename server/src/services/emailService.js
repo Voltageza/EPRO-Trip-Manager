@@ -23,13 +23,13 @@ function getTransporter() {
 const getUnfilledTrips = db.prepare(`
   SELECT id, start_time, end_time, start_address, end_address, distance_km
   FROM trips
-  WHERE trip_date = ? AND (user_description IS NULL OR user_description = '')
+  WHERE trip_date = ? AND (user_description IS NULL OR user_description = '') AND merged_into IS NULL
   ORDER BY start_time
 `);
 
 const getTripsForDateRange = db.prepare(`
   SELECT * FROM trips
-  WHERE trip_date >= ? AND trip_date <= ?
+  WHERE trip_date >= ? AND trip_date <= ? AND merged_into IS NULL
   ORDER BY trip_date ASC, start_time ASC
 `);
 

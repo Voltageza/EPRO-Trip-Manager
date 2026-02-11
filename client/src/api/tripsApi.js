@@ -75,3 +75,27 @@ export async function getDailyReport(date) {
   if (!res.ok) throw new Error(`Failed to get report: ${res.status}`);
   return res.json();
 }
+
+export async function mergeTrips(tripIds) {
+  const res = await fetch(`${BASE}/trips/merge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tripIds }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Merge failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function unmergeTrip(tripId) {
+  const res = await fetch(`${BASE}/trips/${tripId}/unmerge`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Unmerge failed: ${res.status}`);
+  }
+  return res.json();
+}

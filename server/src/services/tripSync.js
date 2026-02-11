@@ -34,6 +34,7 @@ const upsertStmt = db.prepare(`
     cartrack_notes   = excluded.cartrack_notes,
     raw_json         = excluded.raw_json,
     synced_at        = excluded.synced_at
+  WHERE merge_snapshot IS NULL
 `);
 
 const upsertMany = db.transaction((trips) => {
