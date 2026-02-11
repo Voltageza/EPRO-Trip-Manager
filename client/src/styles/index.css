@@ -1104,87 +1104,74 @@ body {
 }
 
 /* ====== MERGE UI ====== */
-.merge-btn {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.3rem 0.7rem;
-  border-radius: 100px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+
+/* Drag handle */
+.drag-handle {
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+  padding: 0.1rem 0.15rem;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
 }
 
-.merge-btn:hover {
-  color: var(--accent);
+.drag-handle:hover {
+  color: var(--text-secondary);
+  background: var(--surface-active);
+}
+
+.trip-card.expanded .drag-handle {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Drag states */
+.trip-card {
+  position: relative;
+}
+
+.trip-card.dragging {
+  opacity: 0.4;
+  transform: scale(0.97);
+  box-shadow: var(--shadow-sm);
+}
+
+.trip-card.drop-target {
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow), 0 0 16px rgba(37, 99, 235, 0.15);
+  transform: scale(1.01);
+  overflow: visible;
+}
+
+.trip-card.drop-target .trip-card-header {
   background: var(--accent-light);
 }
 
-.merge-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.merge-confirm-btn {
+.trip-card.drop-target::after {
+  content: 'Drop to merge';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background: var(--accent);
   color: #fff;
-  border: none;
-  padding: 0.35rem 0.85rem;
-  border-radius: var(--radius-sm);
   font-size: 0.78rem;
   font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s, transform 0.1s;
+  padding: 0.35rem 0.85rem;
+  border-radius: 100px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  animation: dropLabelIn 0.15s ease-out;
 }
 
-.merge-confirm-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.merge-confirm-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.merge-cancel-btn {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  padding: 0.35rem 0.7rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.78rem;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.merge-cancel-btn:hover:not(:disabled) {
-  color: var(--text);
-  border-color: #d1d5db;
-}
-
-.merge-cancel-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.trip-card.selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-glow), var(--shadow-sm);
-}
-
-.merge-checkbox {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
-  cursor: pointer;
-  flex-shrink: 0;
+/* Merging state — disable interactions during API call */
+.trip-list.merging {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .merged-badge {
@@ -1286,6 +1273,17 @@ body {
   }
 }
 
+@keyframes dropLabelIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 /* ====== RESPONSIVE ====== */
 @media (max-width: 768px) {
   .sidebar {
@@ -1363,5 +1361,10 @@ body {
 
   .day-report-stats {
     flex-wrap: wrap;
+  }
+
+  .drag-handle {
+    font-size: 0.75rem;
+    padding: 0.05rem 0.1rem;
   }
 }

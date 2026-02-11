@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import TripCard from './TripCard.jsx';
 import DayReportSubmit from './DayReportSubmit.jsx';
-import { mergeTrips } from '../api/tripsApi.js';
+import { mergeTrips, unmergeTrip } from '../api/tripsApi.js';
 
 export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload }) {
-  const [mergeMode, setMergeMode] = useState(false);
-  const [selected, setSelected] = useState(new Set());
+  const [dragSourceId, setDragSourceId] = useState(null);
+  const [dropTargetId, setDropTargetId] = useState(null);
   const [merging, setMerging] = useState(false);
 
   const dateObj = new Date(date + 'T00:00:00');
@@ -20,33 +20,52 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload 
   const totalKm = trips.reduce((s, t) => s + (t.distance_km || 0), 0);
   const progress = trips.length > 0 ? (filled / trips.length) * 100 : 0;
 
-  function handleToggleSelect(tripId) {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(tripId)) next.delete(tripId);
-      else next.add(tripId);
-      return next;
-    });
+  function handleDragStart(tripId) {
+    setDragSourceId(tripId);
   }
 
-  async function handleMerge() {
-    if (selected.size < 2) return;
+  function handleDragEnd() {
+    setDragSourceId(null);
+    setDropTargetId(null);
+  }
+
+  function handleDragEnterCard(tripId) {
+    if (tripId !== dragSourceId) {
+      setDropTargetId(tripId);
+    }
+  }
+
+  function handleDragLeaveCard(tripId) {
+    if (dropTargetId === tripId) {
+      setDropTargetId(null);
+    }
+  }
+
+  async function handleDropOnCard(targetTripId) {
+    if (!dragSourceId || dragSourceId === targetTripId) return;
+
     setMerging(true);
+    setDragSourceId(null);
+    setDropTargetId(null);
+
     try {
-      await mergeTrips([...selected]);
-      setMergeMode(false);
-      setSelected(new Set());
+      const targetTrip = trips.find(t => t.id === targetTripId);
+      const isMergedPrimary = targetTrip?.merged_from && targetTrip.merged_from.length > 0;
+
+      if (isMergedPrimary) {
+        // Unmerge first, then re-merge with the dragged trip included
+        const previouslyAbsorbed = targetTrip.merged_from.map(m => m.id);
+        await unmergeTrip(targetTripId);
+        await mergeTrips([targetTripId, ...previouslyAbsorbed, dragSourceId]);
+      } else {
+        await mergeTrips([dragSourceId, targetTripId]);
+      }
       onTripsReload();
     } catch (err) {
       alert('Merge failed: ' + err.message);
     } finally {
       setMerging(false);
     }
-  }
-
-  function handleCancelMerge() {
-    setMergeMode(false);
-    setSelected(new Set());
   }
 
   return (
@@ -57,46 +76,27 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload 
           <h2>{formatted}</h2>
         </div>
         <div className="day-header-stats">
-          {!mergeMode && (
-            <>
-              <span className="day-stat">{totalKm.toFixed(1)} km</span>
-              <span className="day-count">{filled}/{trips.length} described</span>
-              {trips.length >= 2 && (
-                <button className="merge-btn" onClick={() => setMergeMode(true)}>
-                  Merge Trips
-                </button>
-              )}
-            </>
-          )}
-          {mergeMode && (
-            <div className="merge-controls">
-              <button
-                className="merge-confirm-btn"
-                onClick={handleMerge}
-                disabled={selected.size < 2 || merging}
-              >
-                {merging ? 'Merging...' : `Merge ${selected.size} Trip${selected.size !== 1 ? 's' : ''}`}
-              </button>
-              <button className="merge-cancel-btn" onClick={handleCancelMerge} disabled={merging}>
-                Cancel
-              </button>
-            </div>
-          )}
+          <span className="day-stat">{totalKm.toFixed(1)} km</span>
+          <span className="day-count">{filled}/{trips.length} described</span>
         </div>
       </div>
       <div className="day-progress">
         <div className="day-progress-fill" style={{ width: `${progress}%` }} />
       </div>
-      <div className="trip-list">
+      <div className={`trip-list${merging ? ' merging' : ''}`}>
         {trips.map((trip, i) => (
           <TripCard
             key={trip.id}
             trip={trip}
             onUpdate={onTripUpdate}
             onTripsReload={onTripsReload}
-            mergeMode={mergeMode}
-            selected={selected.has(trip.id)}
-            onToggleSelect={() => handleToggleSelect(trip.id)}
+            isDragging={dragSourceId === trip.id}
+            isDropTarget={dropTargetId === trip.id}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragEnterCard={handleDragEnterCard}
+            onDragLeaveCard={handleDragLeaveCard}
+            onDropOnCard={handleDropOnCard}
             style={{ '--card-index': i }}
           />
         ))}

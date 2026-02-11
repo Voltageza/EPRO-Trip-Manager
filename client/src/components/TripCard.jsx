@@ -3,7 +3,11 @@ import { saveDescription, unmergeTrip } from '../api/tripsApi.js';
 import BusinessToggle from './BusinessToggle.jsx';
 import SparesInput from './SparesInput.jsx';
 
-export default function TripCard({ trip, onUpdate, onTripsReload, mergeMode, selected, onToggleSelect, style }) {
+export default function TripCard({
+  trip, onUpdate, onTripsReload, style,
+  isDragging, isDropTarget,
+  onDragStart, onDragEnd, onDragEnterCard, onDragLeaveCard, onDropOnCard,
+}) {
   const [description, setDescription] = useState(trip.user_description || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -50,11 +54,41 @@ export default function TripCard({ trip, onUpdate, onTripsReload, mergeMode, sel
   }
 
   function handleHeaderClick() {
-    if (mergeMode) {
-      onToggleSelect();
-    } else {
-      setExpanded(e => !e);
+    setExpanded(e => !e);
+  }
+
+  // Drag event handlers
+  function handleNativeDragStart(e) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', trip.id);
+    // Use setTimeout so the browser captures the drag ghost at full opacity
+    setTimeout(() => onDragStart(trip.id), 0);
+  }
+
+  function handleNativeDragEnd() {
+    onDragEnd();
+  }
+
+  function handleNativeDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }
+
+  function handleNativeDragEnter(e) {
+    e.preventDefault();
+    onDragEnterCard(trip.id);
+  }
+
+  function handleNativeDragLeave(e) {
+    // Only trigger if we're actually leaving this card, not entering a child
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      onDragLeaveCard(trip.id);
     }
+  }
+
+  function handleNativeDrop(e) {
+    e.preventDefault();
+    onDropOnCard(trip.id);
   }
 
   const startTime = trip.start_time
@@ -64,19 +98,28 @@ export default function TripCard({ trip, onUpdate, onTripsReload, mergeMode, sel
     ? new Date(trip.end_time).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
     : '';
 
+  const cardClass = [
+    'trip-card',
+    expanded && 'expanded',
+    isDragging && 'dragging',
+    isDropTarget && 'drop-target',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className={`trip-card ${expanded ? 'expanded' : ''} ${mergeMode && selected ? 'selected' : ''}`} style={style}>
+    <div
+      className={cardClass}
+      style={style}
+      draggable={!expanded}
+      onDragStart={handleNativeDragStart}
+      onDragEnd={handleNativeDragEnd}
+      onDragOver={handleNativeDragOver}
+      onDragEnter={handleNativeDragEnter}
+      onDragLeave={handleNativeDragLeave}
+      onDrop={handleNativeDrop}
+    >
       <div className="trip-card-header" onClick={handleHeaderClick}>
         <div className="trip-header-left">
-          {mergeMode && (
-            <input
-              type="checkbox"
-              className="merge-checkbox"
-              checked={selected}
-              onChange={onToggleSelect}
-              onClick={e => e.stopPropagation()}
-            />
-          )}
+          <span className="drag-handle" title="Drag to merge">&#x2630;</span>
           <span className={`trip-filled-dot ${isFilled ? 'filled' : 'unfilled'}`} />
           <span className="trip-time">{startTime} — {endTime}</span>
           <div className="trip-badges">
@@ -92,7 +135,7 @@ export default function TripCard({ trip, onUpdate, onTripsReload, mergeMode, sel
           </div>
         </div>
         <div className="trip-card-right">
-          {!mergeMode && <BusinessToggle trip={trip} onUpdate={onUpdate} />}
+          <BusinessToggle trip={trip} onUpdate={onUpdate} />
           <span className="trip-expand-icon">{'\u25BC'}</span>
         </div>
       </div>
