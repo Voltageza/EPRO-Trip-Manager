@@ -54,7 +54,7 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload 
 
       if (isMergedPrimary) {
         // Unmerge first, then re-merge with the dragged trip included
-        const previouslyAbsorbed = targetTrip.merged_from.map(m => m.id);
+        const previouslyAbsorbed = [...targetTrip.merged_from];
         await unmergeTrip(targetTripId);
         await mergeTrips([targetTripId, ...previouslyAbsorbed, dragSourceId]);
       } else {
@@ -63,6 +63,7 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload 
       onTripsReload();
     } catch (err) {
       alert('Merge failed: ' + err.message);
+      onTripsReload();
     } finally {
       setMerging(false);
     }
