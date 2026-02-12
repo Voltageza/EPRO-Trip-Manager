@@ -1,8 +1,12 @@
 import React from 'react';
 import DatePicker from './DatePicker.jsx';
 import SyncButton from './SyncButton.jsx';
+import VehicleSelector from './VehicleSelector.jsx';
 
-export default function Sidebar({ date, onDateChange, onSynced, trips, open, onToggle }) {
+export default function Sidebar({
+  date, onDateChange, onSynced, trips, open, onToggle,
+  vehicles, selectedVehicles, onVehicleSelectionChange, onVehiclesRefresh,
+}) {
   const totalKm = trips.reduce((s, t) => s + (t.distance_km || 0), 0);
   const businessCount = trips.filter(t => t.is_business !== 0).length;
   const privateCount = trips.length - businessCount;
@@ -25,7 +29,17 @@ export default function Sidebar({ date, onDateChange, onSynced, trips, open, onT
         </div>
 
         <div className="sidebar-section">
-          <SyncButton date={date} onSynced={onSynced} />
+          <div className="sidebar-section-label">Vehicles</div>
+          <VehicleSelector
+            vehicles={vehicles}
+            selectedVehicles={selectedVehicles}
+            onSelectionChange={onVehicleSelectionChange}
+            onVehiclesRefresh={onVehiclesRefresh}
+          />
+        </div>
+
+        <div className="sidebar-section">
+          <SyncButton date={date} onSynced={onSynced} selectedVehicles={selectedVehicles} />
         </div>
 
         <div className="sidebar-section">

@@ -151,6 +151,10 @@ router.post('/merge', (req, res) => {
       const dates = new Set(trips.map(t => t.trip_date));
       if (dates.size > 1) throw new Error('All trips must be on the same date');
 
+      // Validate: same vehicle
+      const vehicles = new Set(trips.map(t => t.registration));
+      if (vehicles.size > 1) throw new Error('Cannot merge trips from different vehicles');
+
       // Validate: none already absorbed or primary
       for (const t of trips) {
         if (t.merged_into) throw new Error(`Trip ${t.id} is already absorbed into another trip`);

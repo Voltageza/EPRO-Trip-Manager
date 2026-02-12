@@ -4,6 +4,7 @@ const ICONS = {
   info: '\u2139\uFE0F',
   success: '\u2705',
   error: '\u274C',
+  warning: '\u26A0\uFE0F',
 };
 
 export default function StatusBar({ message, type }) {

@@ -355,6 +355,12 @@ body {
   color: var(--error);
 }
 
+.toast-warning {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--warning);
+}
+
 .toast-dismiss {
   margin-left: auto;
   background: none;
@@ -1101,6 +1107,168 @@ body {
   font-weight: 600;
   color: var(--success);
   animation: fadeInOut 2s ease-out;
+}
+
+/* ====== VEHICLE SELECTOR ====== */
+.vehicle-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.vehicle-actions {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.vehicle-action-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.vehicle-action-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: #d1d5db;
+}
+
+.vehicle-action-btn.refresh {
+  margin-left: auto;
+  font-size: 0.85rem;
+  padding: 0.15rem 0.4rem;
+  line-height: 1;
+}
+
+.vehicle-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vehicle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.vehicle-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.375rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.8rem;
+}
+
+.vehicle-item:hover {
+  background: var(--surface-hover);
+}
+
+.vehicle-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.vehicle-reg {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.vehicle-desc {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vehicle-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-align: right;
+}
+
+.vehicle-empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.vehicle-refresh-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.vehicle-refresh-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.vehicle-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ====== VEHICLE SUMMARY (Day Group) ====== */
+.vehicle-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+.vehicle-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.175rem 0.55rem;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+
+/* ====== VEHICLE BADGE (Trip Card) ====== */
+.vehicle-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid var(--business-border);
+  padding: 0.1rem 0.45rem;
+  border-radius: 100px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
 }
 
 /* ====== MERGE UI ====== */

@@ -3,7 +3,7 @@ import TripCard from './TripCard.jsx';
 import DayReportSubmit from './DayReportSubmit.jsx';
 import { mergeTrips, unmergeTrip } from '../api/tripsApi.js';
 
-export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload }) {
+export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload, multiVehicleDay }) {
   const [dragSourceId, setDragSourceId] = useState(null);
   const [dropTargetId, setDropTargetId] = useState(null);
   const [merging, setMerging] = useState(false);
@@ -19,6 +19,14 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload 
   const filled = trips.filter(t => t.user_description).length;
   const totalKm = trips.reduce((s, t) => s + (t.distance_km || 0), 0);
   const progress = trips.length > 0 ? (filled / trips.length) * 100 : 0;
+
+  // Vehicle breakdown for multi-vehicle days
+  const vehicleCounts = {};
+  for (const t of trips) {
+    vehicleCounts[t.registration] = (vehicleCounts[t.registration] || 0) + 1;
+  }
+  const vehicleRegs = Object.keys(vehicleCounts);
+  const showVehicleBadge = vehicleRegs.length > 1;
 
   function handleDragStart(tripId) {
     setDragSourceId(tripId);
@@ -44,12 +52,21 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload 
   async function handleDropOnCard(targetTripId) {
     if (!dragSourceId || dragSourceId === targetTripId) return;
 
+    // Prevent cross-vehicle merge via drag
+    const sourceTrip = trips.find(t => t.id === dragSourceId);
+    const targetTrip = trips.find(t => t.id === targetTripId);
+    if (sourceTrip && targetTrip && sourceTrip.registration !== targetTrip.registration) {
+      alert('Cannot merge trips from different vehicles');
+      setDragSourceId(null);
+      setDropTargetId(null);
+      return;
+    }
+
     setMerging(true);
     setDragSourceId(null);
     setDropTargetId(null);
 
     try {
-      const targetTrip = trips.find(t => t.id === targetTripId);
       const isMergedPrimary = targetTrip?.merged_from && targetTrip.merged_from.length > 0;
 
       if (isMergedPrimary) {
@@ -84,6 +101,17 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload 
       <div className="day-progress">
         <div className="day-progress-fill" style={{ width: `${progress}%` }} />
       </div>
+
+      {showVehicleBadge && (
+        <div className="vehicle-summary">
+          {vehicleRegs.map(reg => (
+            <span key={reg} className="vehicle-summary-chip">
+              {reg}: {vehicleCounts[reg]} trip{vehicleCounts[reg] !== 1 ? 's' : ''}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className={`trip-list${merging ? ' merging' : ''}`}>
         {trips.map((trip, i) => (
           <TripCard
@@ -91,6 +119,7 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload 
             trip={trip}
             onUpdate={onTripUpdate}
             onTripsReload={onTripsReload}
+            showVehicleBadge={showVehicleBadge}
             isDragging={dragSourceId === trip.id}
             isDropTarget={dropTargetId === trip.id}
             onDragStart={handleDragStart}

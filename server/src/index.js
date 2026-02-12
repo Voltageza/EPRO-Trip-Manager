@@ -9,6 +9,7 @@ import './db.js'; // ensure schema is created on startup
 import tripsRouter from './routes/trips.js';
 import syncRouter from './routes/sync.js';
 import reportsRouter from './routes/reports.js';
+import vehiclesRouter from './routes/vehicles.js';
 import { syncTrips, yesterday } from './services/tripSync.js';
 import { sendReminder, sendWeeklyReport } from './services/emailService.js';
 
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use('/api/trips', tripsRouter);
 app.use('/api/sync', syncRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/vehicles', vehiclesRouter);
 
 // Serve built React app in production
 const clientDist = resolve(__dirname, '../../client/dist');

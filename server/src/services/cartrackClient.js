@@ -4,6 +4,23 @@ const { baseUrl, username, password } = config.cartrack;
 const authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
 
 /**
+ * Fetch all vehicles from the Cartrack Fleet API.
+ */
+export async function fetchVehicles() {
+  const url = `${baseUrl}/vehicles`;
+  const res = await fetch(url, {
+    headers: { Authorization: authHeader, Accept: 'application/json' },
+    redirect: 'follow',
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Cartrack vehicles API error ${res.status}: ${body}`);
+  }
+  const json = await res.json();
+  return json.data || json || [];
+}
+
+/**
  * Fetch trips from Cartrack Fleet API for a specific vehicle and date range.
  * Endpoint: GET /trips/{registration}?start_timestamp=Y-m-d H:i:s&end_timestamp=Y-m-d H:i:s
  */

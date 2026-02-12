@@ -5,6 +5,7 @@ import SparesInput from './SparesInput.jsx';
 
 export default function TripCard({
   trip, onUpdate, onTripsReload, style,
+  showVehicleBadge,
   isDragging, isDropTarget,
   onDragStart, onDragEnd, onDragEnterCard, onDragLeaveCard, onDropOnCard,
 }) {
@@ -123,6 +124,9 @@ export default function TripCard({
           <span className={`trip-filled-dot ${isFilled ? 'filled' : 'unfilled'}`} />
           <span className="trip-time">{startTime} — {endTime}</span>
           <div className="trip-badges">
+            {showVehicleBadge && (
+              <span className="vehicle-badge">{trip.registration}</span>
+            )}
             {trip.distance_km != null && (
               <span className="trip-badge">{trip.distance_km.toFixed(1)} km</span>
             )}

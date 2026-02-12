@@ -1,5 +1,7 @@
 import db from '../db.js';
+import config from '../config.js';
 import { fetchTrips } from './cartrackClient.js';
+import { getActiveRegistrations } from './vehicleSync.js';
 
 const upsertStmt = db.prepare(`
   INSERT INTO trips (
@@ -49,12 +51,36 @@ const upsertMany = db.transaction((trips) => {
 
 /**
  * Sync trips from Cartrack for a date range.
- * Returns { synced: number } with count of upserted rows.
+ * If registrations[] is provided, syncs those vehicles.
+ * Otherwise falls back to active vehicles from the DB, then .env.
  */
-export async function syncTrips(fromDate, toDate) {
-  const trips = await fetchTrips(null, fromDate, toDate);
-  const synced = upsertMany(trips);
-  return { synced, from: fromDate, to: toDate };
+export async function syncTrips(fromDate, toDate, registrations) {
+  const regs = registrations && registrations.length > 0
+    ? registrations
+    : getActiveRegistrations();
+
+  let totalSynced = 0;
+  const errors = [];
+
+  // Sync each vehicle sequentially to avoid rate limits
+  for (const reg of regs) {
+    try {
+      const trips = await fetchTrips(reg, fromDate, toDate);
+      const synced = upsertMany(trips);
+      totalSynced += synced;
+    } catch (err) {
+      console.error(`[sync] Error syncing ${reg}:`, err.message);
+      errors.push({ registration: reg, error: err.message });
+    }
+  }
+
+  return {
+    synced: totalSynced,
+    from: fromDate,
+    to: toDate,
+    vehicles: regs.length,
+    errors: errors.length > 0 ? errors : undefined,
+  };
 }
 
 /**

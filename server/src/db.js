@@ -51,6 +51,20 @@ if (!tripsColumns.find(c => c.name === 'merge_snapshot')) {
   db.exec(`ALTER TABLE trips ADD COLUMN merge_snapshot TEXT`);
 }
 
+// Vehicles table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS vehicles (
+    registration TEXT PRIMARY KEY,
+    description  TEXT,
+    make         TEXT,
+    model        TEXT,
+    year         TEXT,
+    is_active    INTEGER DEFAULT 1,
+    raw_json     TEXT,
+    last_synced  TEXT
+  );
+`);
+
 // New table: trip_spares
 db.exec(`
   CREATE TABLE IF NOT EXISTS trip_spares (

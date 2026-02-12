@@ -1,13 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { fetchTrips } from './api/tripsApi.js';
+import { fetchTrips, fetchVehiclesApi, syncVehiclesApi } from './api/tripsApi.js';
 import TripDayGroup from './components/TripDayGroup.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import StatusBar from './components/StatusBar.jsx';
+
+const STORAGE_KEY = 'epro-selected-vehicles';
 
 function getYesterday() {
   const d = new Date();
   d.setDate(d.getDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+function loadSavedSelection() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveSelection(regs) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(regs));
 }
 
 export default function App() {
@@ -16,6 +29,51 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ message: '', type: 'info' });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [vehicles, setVehicles] = useState([]);
+  const [selectedVehicles, setSelectedVehicles] = useState([]);
+
+  // Load vehicles on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        let list = await fetchVehiclesApi();
+        // First run: no vehicles cached yet — auto-fetch from Cartrack
+        if (!list || list.length === 0) {
+          const result = await syncVehiclesApi();
+          list = result.vehicles || [];
+        }
+        setVehicles(list);
+        // Restore saved selection, or default to all active
+        const saved = loadSavedSelection();
+        if (saved && saved.length > 0) {
+          // Filter out any saved registrations that no longer exist
+          const valid = saved.filter(r => list.some(v => v.registration === r));
+          setSelectedVehicles(valid.length > 0 ? valid : list.filter(v => v.is_active).map(v => v.registration));
+        } else {
+          setSelectedVehicles(list.filter(v => v.is_active).map(v => v.registration));
+        }
+      } catch (err) {
+        console.error('Failed to load vehicles:', err.message);
+      }
+    })();
+  }, []);
+
+  // Persist selection changes
+  function handleVehicleSelectionChange(regs) {
+    setSelectedVehicles(regs);
+    saveSelection(regs);
+  }
+
+  function handleVehiclesRefresh(list) {
+    setVehicles(list);
+    // Keep current selection valid
+    const validRegs = new Set(list.map(v => v.registration));
+    setSelectedVehicles(prev => {
+      const filtered = prev.filter(r => validRegs.has(r));
+      if (filtered.length === 0) return list.filter(v => v.is_active).map(v => v.registration);
+      return filtered;
+    });
+  }
 
   const loadTrips = useCallback(async (targetDate) => {
     setLoading(true);
@@ -46,7 +104,11 @@ export default function App() {
     if (result.error) {
       setStatus({ message: `Sync failed: ${result.error}`, type: 'error' });
     } else {
-      setStatus({ message: `Synced ${result.synced} trip${result.synced !== 1 ? 's' : ''} from Cartrack`, type: 'success' });
+      let msg = `Synced ${result.synced} trip${result.synced !== 1 ? 's' : ''} from ${result.vehicles || 1} vehicle${(result.vehicles || 1) !== 1 ? 's' : ''}`;
+      if (result.errors && result.errors.length > 0) {
+        msg += ` (${result.errors.length} vehicle${result.errors.length !== 1 ? 's' : ''} failed)`;
+      }
+      setStatus({ message: msg, type: result.errors ? 'warning' : 'success' });
       loadTrips(date);
     }
   }
@@ -54,6 +116,10 @@ export default function App() {
   function handleTripUpdate(updated) {
     setTrips(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
   }
+
+  // Determine if multiple vehicles have trips on this day
+  const vehicleRegsInTrips = new Set(trips.map(t => t.registration));
+  const multiVehicleDay = vehicleRegsInTrips.size > 1;
 
   // KPI computations
   const totalKm = trips.reduce((s, t) => s + (t.distance_km || 0), 0);
@@ -78,6 +144,10 @@ export default function App() {
         trips={trips}
         open={sidebarOpen}
         onToggle={() => setSidebarOpen(o => !o)}
+        vehicles={vehicles}
+        selectedVehicles={selectedVehicles}
+        onVehicleSelectionChange={handleVehicleSelectionChange}
+        onVehiclesRefresh={handleVehiclesRefresh}
       />
 
       <main className="main-content">
@@ -116,6 +186,7 @@ export default function App() {
             trips={grouped[d]}
             onTripUpdate={handleTripUpdate}
             onTripsReload={() => loadTrips(date)}
+            multiVehicleDay={multiVehicleDay}
           />
         ))}
       </main>

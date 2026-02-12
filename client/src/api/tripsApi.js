@@ -47,16 +47,40 @@ export async function deleteSpare(tripId, spareId) {
   return res.json();
 }
 
-export async function triggerSync(from, to) {
+export async function triggerSync(from, to, registrations) {
+  const body = { from, to };
+  if (registrations && registrations.length > 0) body.registrations = registrations;
   const res = await fetch(`${BASE}/sync`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || `Sync failed: ${res.status}`);
   }
+  return res.json();
+}
+
+export async function fetchVehiclesApi() {
+  const res = await fetch(`${BASE}/vehicles`);
+  if (!res.ok) throw new Error(`Failed to fetch vehicles: ${res.status}`);
+  return res.json();
+}
+
+export async function syncVehiclesApi() {
+  const res = await fetch(`${BASE}/vehicles/sync`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Failed to sync vehicles: ${res.status}`);
+  return res.json();
+}
+
+export async function updateVehicle(registration, fields) {
+  const res = await fetch(`${BASE}/vehicles/${encodeURIComponent(registration)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  if (!res.ok) throw new Error(`Failed to update vehicle: ${res.status}`);
   return res.json();
 }
 
