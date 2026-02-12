@@ -99,6 +99,19 @@ export default function TripCard({
     ? new Date(trip.end_time).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
     : '';
 
+  // Clean addresses: strip region/country suffixes, add geofence name
+  const raw = trip.raw_json ? (typeof trip.raw_json === 'string' ? JSON.parse(trip.raw_json) : trip.raw_json) : {};
+  function cleanAddress(addr) {
+    return (addr || 'Unknown')
+      .replace(/, Western Cape, South Africa$/i, '')
+      .replace(/, South Africa$/i, '')
+      .replace(/, Western Cape$/i, '');
+  }
+  const startAddr = cleanAddress(trip.start_address);
+  const endAddr = cleanAddress(trip.end_address);
+  const startGeo = raw.start_geofence_name || '';
+  const endGeo = raw.end_geofence_name || '';
+
   const cardClass = [
     'trip-card',
     expanded && 'expanded',
@@ -162,8 +175,14 @@ export default function TripCard({
               <div className="route-dot end"></div>
             </div>
             <div className="route-addresses">
-              <div className="trip-address">{trip.start_address || 'Unknown'}</div>
-              <div className="trip-address">{trip.end_address || 'Unknown'}</div>
+              <div className="trip-address">
+                {startAddr}
+                {startGeo && <span className="geo-name">{startGeo}</span>}
+              </div>
+              <div className="trip-address">
+                {endAddr}
+                {endGeo && <span className="geo-name">{endGeo}</span>}
+              </div>
             </div>
           </div>
 

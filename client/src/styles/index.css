@@ -733,6 +733,18 @@ body {
   text-overflow: ellipsis;
 }
 
+.geo-name {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+
 /* ====== SPARES ====== */
 .spares-section {
   margin-bottom: 0.625rem;
