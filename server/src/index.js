@@ -10,6 +10,9 @@ import tripsRouter from './routes/trips.js';
 import syncRouter from './routes/sync.js';
 import reportsRouter from './routes/reports.js';
 import vehiclesRouter from './routes/vehicles.js';
+import authRouter from './routes/auth.js';
+import adminRouter from './routes/admin.js';
+import { requireAuth } from './middleware/auth.js';
 import { syncTrips, yesterday } from './services/tripSync.js';
 import { sendReminder, sendWeeklyReport } from './services/emailService.js';
 
@@ -20,10 +23,12 @@ app.use(cors());
 app.use(express.json());
 
 // API routes
-app.use('/api/trips', tripsRouter);
-app.use('/api/sync', syncRouter);
-app.use('/api/reports', reportsRouter);
-app.use('/api/vehicles', vehiclesRouter);
+app.use('/api/auth', authRouter);                   // public
+app.use('/api/trips', requireAuth, tripsRouter);
+app.use('/api/sync', requireAuth, syncRouter);
+app.use('/api/reports', requireAuth, reportsRouter);
+app.use('/api/vehicles', requireAuth, vehiclesRouter);
+app.use('/api/admin', adminRouter);                 // has own auth middleware
 
 // Serve built React app in production
 const clientDist = resolve(__dirname, '../../client/dist');

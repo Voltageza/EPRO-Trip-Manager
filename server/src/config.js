@@ -25,6 +25,11 @@ export default {
     to: process.env.EMAIL_TO || '',
   },
 
+  jwt: {
+    secret: process.env.JWT_SECRET || 'epro-default-secret-change-me',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
+
   syncCron: process.env.SYNC_CRON || '0 6 * * *',
   reminderCron: process.env.REMINDER_CRON || '0 7 * * *',
   weeklyReportCron: process.env.WEEKLY_REPORT_CRON || '0 6 * * 1',

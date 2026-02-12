@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchTrips, fetchVehiclesApi, syncVehiclesApi } from './api/tripsApi.js';
+import { useAuth } from './context/AuthContext.jsx';
 import TripDayGroup from './components/TripDayGroup.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import StatusBar from './components/StatusBar.jsx';
@@ -24,6 +25,7 @@ function saveSelection(regs) {
 }
 
 export default function App() {
+  const { user } = useAuth();
   const [date, setDate] = useState(getYesterday);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,12 +45,13 @@ export default function App() {
           list = result.vehicles || [];
         }
         setVehicles(list);
-        // Restore saved selection, or default to all active
+        // Restore saved selection, or use default vehicle, or fall back to all active
         const saved = loadSavedSelection();
         if (saved && saved.length > 0) {
-          // Filter out any saved registrations that no longer exist
           const valid = saved.filter(r => list.some(v => v.registration === r));
           setSelectedVehicles(valid.length > 0 ? valid : list.filter(v => v.is_active).map(v => v.registration));
+        } else if (user?.default_vehicle && list.some(v => v.registration === user.default_vehicle)) {
+          setSelectedVehicles([user.default_vehicle]);
         } else {
           setSelectedVehicles(list.filter(v => v.is_active).map(v => v.registration));
         }

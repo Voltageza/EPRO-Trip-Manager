@@ -90,4 +90,24 @@ db.exec(`
   );
 `);
 
+// Users table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    display_name TEXT NOT NULL DEFAULT '',
+    role TEXT NOT NULL DEFAULT 'user',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+  );
+`);
+
+// Migration: add default_vehicle column to users if missing
+const usersColumns = db.prepare("PRAGMA table_info(users)").all();
+if (!usersColumns.find(c => c.name === 'default_vehicle')) {
+  db.exec(`ALTER TABLE users ADD COLUMN default_vehicle TEXT`);
+}
+
 export default db;

@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DatePicker from './DatePicker.jsx';
 import SyncButton from './SyncButton.jsx';
 import VehicleSelector from './VehicleSelector.jsx';
+import UserManager from './UserManager.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Sidebar({
   date, onDateChange, onSynced, trips, open, onToggle,
   vehicles, selectedVehicles, onVehicleSelectionChange, onVehiclesRefresh,
 }) {
+  const { user, logout } = useAuth();
+  const [showUserManager, setShowUserManager] = useState(false);
   const totalKm = trips.reduce((s, t) => s + (t.distance_km || 0), 0);
   const businessCount = trips.filter(t => t.is_business !== 0).length;
   const privateCount = trips.length - businessCount;
@@ -63,7 +67,24 @@ export default function Sidebar({
             </div>
           </div>
         </div>
+
+        <div className="sidebar-user">
+          <div className="sidebar-user-info">
+            <span className="sidebar-user-name">{user?.display_name || user?.username}</span>
+            {user?.role === 'admin' && <span className="role-badge role-admin">admin</span>}
+          </div>
+          {user?.role === 'admin' && (
+            <button className="sidebar-user-btn" onClick={() => setShowUserManager(true)}>
+              Manage Users
+            </button>
+          )}
+          <button className="sidebar-user-btn sidebar-logout-btn" onClick={logout}>
+            Log Out
+          </button>
+        </div>
       </aside>
+
+      {showUserManager && <UserManager onClose={() => setShowUserManager(false)} />}
     </>
   );
 }

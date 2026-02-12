@@ -1,16 +1,111 @@
 const BASE = '/api';
+const TOKEN_KEY = 'epro-auth-token';
+
+// Authenticated fetch wrapper — injects Bearer token, fires auth-expired on 401
+async function authFetch(url, options = {}) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers = { ...options.headers };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    window.dispatchEvent(new Event('auth-expired'));
+    throw new Error('Session expired — please log in again');
+  }
+  return res;
+}
+
+// ===== Auth API (no token needed) =====
+
+export async function checkAuthStatus() {
+  const res = await fetch(`${BASE}/auth/status`);
+  if (!res.ok) throw new Error('Failed to check auth status');
+  return res.json();
+}
+
+export async function setupApi(username, password, displayName, default_vehicle) {
+  const res = await fetch(`${BASE}/auth/setup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, displayName, default_vehicle }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Setup failed');
+  }
+  return res.json();
+}
+
+export async function loginApi(username, password) {
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Login failed');
+  }
+  return res.json();
+}
+
+// ===== Admin API =====
+
+export async function fetchUsersApi() {
+  const res = await authFetch(`${BASE}/admin/users`);
+  if (!res.ok) throw new Error('Failed to fetch users');
+  return res.json();
+}
+
+export async function createUserApi(username, password, displayName, role, default_vehicle) {
+  const res = await authFetch(`${BASE}/admin/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, displayName, role, default_vehicle }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to create user');
+  }
+  return res.json();
+}
+
+export async function updateUserApi(id, fields) {
+  const res = await authFetch(`${BASE}/admin/users/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to update user');
+  }
+  return res.json();
+}
+
+export async function deleteUserApi(id) {
+  const res = await authFetch(`${BASE}/admin/users/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete user');
+  }
+  return res.json();
+}
+
+// ===== Trip API =====
 
 export async function fetchTrips(from, to) {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
-  const res = await fetch(`${BASE}/trips?${params}`);
+  const res = await authFetch(`${BASE}/trips?${params}`);
   if (!res.ok) throw new Error(`Failed to fetch trips: ${res.status}`);
   return res.json();
 }
 
 export async function saveDescription(tripId, description) {
-  const res = await fetch(`${BASE}/trips/${tripId}`, {
+  const res = await authFetch(`${BASE}/trips/${tripId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_description: description }),
@@ -20,7 +115,7 @@ export async function saveDescription(tripId, description) {
 }
 
 export async function updateTrip(tripId, fields) {
-  const res = await fetch(`${BASE}/trips/${tripId}`, {
+  const res = await authFetch(`${BASE}/trips/${tripId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(fields),
@@ -30,7 +125,7 @@ export async function updateTrip(tripId, fields) {
 }
 
 export async function addSpare(tripId, spareName, quantity) {
-  const res = await fetch(`${BASE}/trips/${tripId}/spares`, {
+  const res = await authFetch(`${BASE}/trips/${tripId}/spares`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ spare_name: spareName, quantity }),
@@ -40,7 +135,7 @@ export async function addSpare(tripId, spareName, quantity) {
 }
 
 export async function deleteSpare(tripId, spareId) {
-  const res = await fetch(`${BASE}/trips/${tripId}/spares/${spareId}`, {
+  const res = await authFetch(`${BASE}/trips/${tripId}/spares/${spareId}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`Failed to delete spare: ${res.status}`);
@@ -50,7 +145,7 @@ export async function deleteSpare(tripId, spareId) {
 export async function triggerSync(from, to, registrations) {
   const body = { from, to };
   if (registrations && registrations.length > 0) body.registrations = registrations;
-  const res = await fetch(`${BASE}/sync`, {
+  const res = await authFetch(`${BASE}/sync`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -63,19 +158,19 @@ export async function triggerSync(from, to, registrations) {
 }
 
 export async function fetchVehiclesApi() {
-  const res = await fetch(`${BASE}/vehicles`);
+  const res = await authFetch(`${BASE}/vehicles`);
   if (!res.ok) throw new Error(`Failed to fetch vehicles: ${res.status}`);
   return res.json();
 }
 
 export async function syncVehiclesApi() {
-  const res = await fetch(`${BASE}/vehicles/sync`, { method: 'POST' });
+  const res = await authFetch(`${BASE}/vehicles/sync`, { method: 'POST' });
   if (!res.ok) throw new Error(`Failed to sync vehicles: ${res.status}`);
   return res.json();
 }
 
 export async function updateVehicle(registration, fields) {
-  const res = await fetch(`${BASE}/vehicles/${encodeURIComponent(registration)}`, {
+  const res = await authFetch(`${BASE}/vehicles/${encodeURIComponent(registration)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(fields),
@@ -85,7 +180,7 @@ export async function updateVehicle(registration, fields) {
 }
 
 export async function submitDailyReport(date, notes) {
-  const res = await fetch(`${BASE}/reports`, {
+  const res = await authFetch(`${BASE}/reports`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date, notes }),
@@ -95,13 +190,13 @@ export async function submitDailyReport(date, notes) {
 }
 
 export async function getDailyReport(date) {
-  const res = await fetch(`${BASE}/reports?date=${encodeURIComponent(date)}`);
+  const res = await authFetch(`${BASE}/reports?date=${encodeURIComponent(date)}`);
   if (!res.ok) throw new Error(`Failed to get report: ${res.status}`);
   return res.json();
 }
 
 export async function mergeTrips(tripIds) {
-  const res = await fetch(`${BASE}/trips/merge`, {
+  const res = await authFetch(`${BASE}/trips/merge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tripIds }),
@@ -114,7 +209,7 @@ export async function mergeTrips(tripIds) {
 }
 
 export async function unmergeTrip(tripId) {
-  const res = await fetch(`${BASE}/trips/${tripId}/unmerge`, {
+  const res = await authFetch(`${BASE}/trips/${tripId}/unmerge`, {
     method: 'POST',
   });
   if (!res.ok) {
