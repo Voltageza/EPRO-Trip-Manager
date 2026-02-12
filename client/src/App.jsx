@@ -120,6 +120,10 @@ export default function App() {
     setTrips(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
   }
 
+  // Filter trips to only selected vehicles
+  const selectedSet = new Set(selectedVehicles);
+  const visibleTrips = trips.filter(t => selectedSet.has(t.registration));
+
   // Build registration -> display name lookup
   const vehicleNames = {};
   for (const v of vehicles) {
@@ -127,17 +131,17 @@ export default function App() {
   }
 
   // Determine if multiple vehicles have trips on this day
-  const vehicleRegsInTrips = new Set(trips.map(t => t.registration));
+  const vehicleRegsInTrips = new Set(visibleTrips.map(t => t.registration));
   const multiVehicleDay = vehicleRegsInTrips.size > 1;
 
   // KPI computations
-  const totalKm = trips.reduce((s, t) => s + (t.distance_km || 0), 0);
-  const businessCount = trips.filter(t => t.is_business !== 0).length;
-  const privateCount = trips.length - businessCount;
+  const totalKm = visibleTrips.reduce((s, t) => s + (t.distance_km || 0), 0);
+  const businessCount = visibleTrips.filter(t => t.is_business !== 0).length;
+  const privateCount = visibleTrips.length - businessCount;
 
   // Group trips by date
   const grouped = {};
-  for (const trip of trips) {
+  for (const trip of visibleTrips) {
     const key = trip.trip_date || date;
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(trip);
@@ -150,7 +154,7 @@ export default function App() {
         date={date}
         onDateChange={handleDateChange}
         onSynced={handleSyncResult}
-        trips={trips}
+        trips={visibleTrips}
         open={sidebarOpen}
         onToggle={() => setSidebarOpen(o => !o)}
         vehicles={vehicles}
@@ -163,7 +167,7 @@ export default function App() {
         <div className="kpi-row">
           <div className="kpi-card">
             <div className="kpi-label">Trips</div>
-            <div className="kpi-value">{trips.length}</div>
+            <div className="kpi-value">{visibleTrips.length}</div>
           </div>
           <div className="kpi-card">
             <div className="kpi-label">Distance</div>
