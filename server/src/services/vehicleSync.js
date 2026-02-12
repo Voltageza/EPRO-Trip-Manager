@@ -20,7 +20,7 @@ const upsertMany = db.transaction((vehicles) => {
   for (const v of vehicles) {
     upsertVehicle.run({
       registration: v.registration,
-      description: v.vehicle_name || v.client_vehicle_description || v.description || '',
+      description: v.client_vehicle_description || v.vehicle_name || v.description || '',
       make: v.manufacturer || v.make || '',
       model: v.model || '',
       year: v.model_year ? String(v.model_year) : (v.year || ''),

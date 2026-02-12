@@ -3,7 +3,7 @@ import TripCard from './TripCard.jsx';
 import DayReportSubmit from './DayReportSubmit.jsx';
 import { mergeTrips, unmergeTrip } from '../api/tripsApi.js';
 
-export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload, multiVehicleDay }) {
+export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload, multiVehicleDay, vehicleNames = {} }) {
   const [dragSourceId, setDragSourceId] = useState(null);
   const [dropTargetId, setDropTargetId] = useState(null);
   const [merging, setMerging] = useState(false);
@@ -106,7 +106,7 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload,
         <div className="vehicle-summary">
           {vehicleRegs.map(reg => (
             <span key={reg} className="vehicle-summary-chip">
-              {reg}: {vehicleCounts[reg]} trip{vehicleCounts[reg] !== 1 ? 's' : ''}
+              {vehicleNames[reg] || reg}: {vehicleCounts[reg]} trip{vehicleCounts[reg] !== 1 ? 's' : ''}
             </span>
           ))}
         </div>
@@ -120,6 +120,7 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload,
             onUpdate={onTripUpdate}
             onTripsReload={onTripsReload}
             showVehicleBadge={showVehicleBadge}
+            vehicleNames={vehicleNames}
             isDragging={dragSourceId === trip.id}
             isDropTarget={dropTargetId === trip.id}
             onDragStart={handleDragStart}

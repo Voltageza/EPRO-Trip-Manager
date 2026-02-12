@@ -117,6 +117,12 @@ export default function App() {
     setTrips(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
   }
 
+  // Build registration -> display name lookup
+  const vehicleNames = {};
+  for (const v of vehicles) {
+    vehicleNames[v.registration] = v.description || v.registration;
+  }
+
   // Determine if multiple vehicles have trips on this day
   const vehicleRegsInTrips = new Set(trips.map(t => t.registration));
   const multiVehicleDay = vehicleRegsInTrips.size > 1;
@@ -187,6 +193,7 @@ export default function App() {
             onTripUpdate={handleTripUpdate}
             onTripsReload={() => loadTrips(date)}
             multiVehicleDay={multiVehicleDay}
+            vehicleNames={vehicleNames}
           />
         ))}
       </main>

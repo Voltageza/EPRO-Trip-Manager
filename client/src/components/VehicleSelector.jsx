@@ -69,8 +69,8 @@ export default function VehicleSelector({ vehicles, selectedVehicles, onSelectio
               checked={selectedVehicles.includes(v.registration)}
               onChange={() => handleToggle(v.registration)}
             />
-            <span className="vehicle-reg">{v.registration}</span>
-            {v.description && <span className="vehicle-desc">{v.description}</span>}
+            <span className="vehicle-reg">{v.description || v.registration}</span>
+            <span className="vehicle-desc">{v.make ? `${v.make} ${v.model}` : v.registration}</span>
           </label>
         ))}
       </div>
