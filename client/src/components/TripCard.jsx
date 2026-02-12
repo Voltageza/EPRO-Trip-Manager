@@ -1,11 +1,96 @@
 import React, { useState, useRef } from 'react';
-import { saveDescription, unmergeTrip } from '../api/tripsApi.js';
+import { saveDescription, unmergeTrip, createLocationApi } from '../api/tripsApi.js';
 import BusinessToggle from './BusinessToggle.jsx';
 import SparesInput from './SparesInput.jsx';
+
+// Haversine distance in metres between two lat/lng pairs
+function haversineMetres(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Find the closest saved location within radius (metres)
+function findNearbyLocation(lat, lng, locations, radius = 100) {
+  if (lat == null || lng == null || !locations.length) return null;
+  let best = null;
+  let bestDist = radius;
+  for (const loc of locations) {
+    const d = haversineMetres(lat, lng, loc.lat, loc.lng);
+    if (d < bestDist) {
+      best = loc;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+function AddressWithLocation({
+  addr, geoName, lat, lng, locations, endpoint,
+  namingEndpoint, locationName, savingLocation,
+  onStartNaming, onCancelNaming, onNameChange, onSaveLocation,
+}) {
+  const savedLoc = !geoName ? findNearbyLocation(lat, lng, locations) : null;
+  const hasCoords = lat != null && lng != null;
+  const isNaming = namingEndpoint === endpoint;
+
+  return (
+    <div className="trip-address">
+      {addr}
+      {geoName && <span className="geo-name">{geoName}</span>}
+      {!geoName && savedLoc && <span className="geo-name">{savedLoc.name}</span>}
+      {!geoName && !savedLoc && hasCoords && (
+        <>
+          <a
+            className="geo-link"
+            href={`https://www.google.com/maps?q=${lat},${lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in Google Maps"
+            onClick={e => e.stopPropagation()}
+          >
+            &#x1F4CD;
+          </a>
+          {!isNaming && (
+            <button
+              className="geo-add-btn"
+              title="Name this location"
+              onClick={e => { e.stopPropagation(); onStartNaming(endpoint); }}
+            >+</button>
+          )}
+          {isNaming && (
+            <span className="geo-add-form" onClick={e => e.stopPropagation()}>
+              <input
+                type="text"
+                placeholder="Location name..."
+                value={locationName}
+                onChange={e => onNameChange(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') onSaveLocation(endpoint);
+                  if (e.key === 'Escape') onCancelNaming();
+                }}
+                autoFocus
+              />
+              <button onClick={() => onSaveLocation(endpoint)} disabled={savingLocation || !locationName.trim()}>
+                {savingLocation ? '...' : 'Save'}
+              </button>
+              <button className="geo-cancel-btn" onClick={onCancelNaming}>&times;</button>
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function TripCard({
   trip, onUpdate, onTripsReload, style,
   showVehicleBadge, vehicleNames = {},
+  locations = [], onLocationAdded,
   isDragging, isDropTarget,
   onDragStart, onDragEnd, onDragEnterCard, onDragLeaveCard, onDropOnCard,
 }) {
@@ -14,6 +99,9 @@ export default function TripCard({
   const [saved, setSaved] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [unmerging, setUnmerging] = useState(false);
+  const [namingEndpoint, setNamingEndpoint] = useState(null); // 'start' | 'end' | null
+  const [locationName, setLocationName] = useState('');
+  const [savingLocation, setSavingLocation] = useState(false);
   const timerRef = useRef(null);
 
   const dirty = description !== (trip.user_description || '');
@@ -56,6 +144,20 @@ export default function TripCard({
 
   function handleHeaderClick() {
     setExpanded(e => !e);
+  }
+
+  async function handleSaveLocation(endpoint) {
+    const lat = endpoint === 'start' ? trip.start_lat : trip.end_lat;
+    const lng = endpoint === 'start' ? trip.start_lng : trip.end_lng;
+    if (!locationName.trim() || lat == null || lng == null) return;
+    setSavingLocation(true);
+    try {
+      await createLocationApi(locationName.trim(), lat, lng);
+      setNamingEndpoint(null);
+      setLocationName('');
+      if (onLocationAdded) onLocationAdded();
+    } catch { /* keep form open for retry */ }
+    finally { setSavingLocation(false); }
   }
 
   // Drag event handlers
@@ -175,14 +277,36 @@ export default function TripCard({
               <div className="route-dot end"></div>
             </div>
             <div className="route-addresses">
-              <div className="trip-address">
-                {startAddr}
-                {startGeo && <span className="geo-name">{startGeo}</span>}
-              </div>
-              <div className="trip-address">
-                {endAddr}
-                {endGeo && <span className="geo-name">{endGeo}</span>}
-              </div>
+              <AddressWithLocation
+                addr={startAddr}
+                geoName={startGeo}
+                lat={trip.start_lat}
+                lng={trip.start_lng}
+                locations={locations}
+                endpoint="start"
+                namingEndpoint={namingEndpoint}
+                locationName={locationName}
+                savingLocation={savingLocation}
+                onStartNaming={(ep) => { setNamingEndpoint(ep); setLocationName(''); }}
+                onCancelNaming={() => setNamingEndpoint(null)}
+                onNameChange={setLocationName}
+                onSaveLocation={handleSaveLocation}
+              />
+              <AddressWithLocation
+                addr={endAddr}
+                geoName={endGeo}
+                lat={trip.end_lat}
+                lng={trip.end_lng}
+                locations={locations}
+                endpoint="end"
+                namingEndpoint={namingEndpoint}
+                locationName={locationName}
+                savingLocation={savingLocation}
+                onStartNaming={(ep) => { setNamingEndpoint(ep); setLocationName(''); }}
+                onCancelNaming={() => setNamingEndpoint(null)}
+                onNameChange={setLocationName}
+                onSaveLocation={handleSaveLocation}
+              />
             </div>
           </div>
 

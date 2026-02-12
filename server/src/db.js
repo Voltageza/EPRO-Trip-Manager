@@ -90,6 +90,17 @@ db.exec(`
   );
 `);
 
+// Locations table (custom GPS-based names)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    lat REAL NOT NULL,
+    lng REAL NOT NULL,
+    created_at TEXT NOT NULL
+  );
+`);
+
 // Users table
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (

@@ -208,6 +208,30 @@ export async function mergeTrips(tripIds) {
   return res.json();
 }
 
+// ===== Locations API =====
+
+export async function fetchLocationsApi() {
+  const res = await authFetch(`${BASE}/locations`);
+  if (!res.ok) throw new Error('Failed to fetch locations');
+  return res.json();
+}
+
+export async function createLocationApi(name, lat, lng) {
+  const res = await authFetch(`${BASE}/locations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, lat, lng }),
+  });
+  if (!res.ok) throw new Error('Failed to create location');
+  return res.json();
+}
+
+export async function deleteLocationApi(id) {
+  const res = await authFetch(`${BASE}/locations/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete location');
+  return res.json();
+}
+
 export async function unmergeTrip(tripId) {
   const res = await authFetch(`${BASE}/trips/${tripId}/unmerge`, {
     method: 'POST',

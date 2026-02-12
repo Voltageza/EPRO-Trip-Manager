@@ -12,6 +12,7 @@ import reportsRouter from './routes/reports.js';
 import vehiclesRouter from './routes/vehicles.js';
 import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
+import locationsRouter from './routes/locations.js';
 import { requireAuth } from './middleware/auth.js';
 import { syncTrips, yesterday } from './services/tripSync.js';
 import { sendReminder, sendWeeklyReport } from './services/emailService.js';
@@ -28,6 +29,7 @@ app.use('/api/trips', requireAuth, tripsRouter);
 app.use('/api/sync', requireAuth, syncRouter);
 app.use('/api/reports', requireAuth, reportsRouter);
 app.use('/api/vehicles', requireAuth, vehiclesRouter);
+app.use('/api/locations', requireAuth, locationsRouter);
 app.use('/api/admin', adminRouter);                 // has own auth middleware
 
 // Serve built React app in production

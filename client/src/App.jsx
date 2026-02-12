@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { fetchTrips, fetchVehiclesApi, syncVehiclesApi } from './api/tripsApi.js';
+import { fetchTrips, fetchVehiclesApi, syncVehiclesApi, fetchLocationsApi } from './api/tripsApi.js';
 import { useAuth } from './context/AuthContext.jsx';
 import TripDayGroup from './components/TripDayGroup.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -33,6 +33,19 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicles, setSelectedVehicles] = useState([]);
+  const [locations, setLocations] = useState([]);
+
+  // Load locations on mount
+  useEffect(() => {
+    fetchLocationsApi().then(setLocations).catch(() => {});
+  }, []);
+
+  const refreshLocations = useCallback(async () => {
+    try {
+      const list = await fetchLocationsApi();
+      setLocations(list);
+    } catch { /* ignore */ }
+  }, []);
 
   // Load vehicles on mount
   useEffect(() => {
@@ -201,6 +214,8 @@ export default function App() {
             onTripsReload={() => loadTrips(date)}
             multiVehicleDay={multiVehicleDay}
             vehicleNames={vehicleNames}
+            locations={locations}
+            onLocationAdded={refreshLocations}
           />
         ))}
       </main>
