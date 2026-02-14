@@ -15,6 +15,9 @@ function getTransporter() {
         user: config.smtp.user,
         pass: config.smtp.pass,
       },
+      tls: {
+        rejectUnauthorized: false,
+      },
     });
   }
   return transporter;
@@ -27,18 +30,28 @@ const getUnfilledTrips = db.prepare(`
   ORDER BY start_time
 `);
 
-const getTripsForDateRange = db.prepare(`
+const getBusinessTripsForDateRange = db.prepare(`
+  SELECT * FROM trips
+  WHERE trip_date >= ? AND trip_date <= ? AND merged_into IS NULL AND is_business = 1
+  ORDER BY registration ASC, trip_date ASC, start_time ASC
+`);
+
+const getAllTripsForDateRange = db.prepare(`
   SELECT * FROM trips
   WHERE trip_date >= ? AND trip_date <= ? AND merged_into IS NULL
-  ORDER BY trip_date ASC, start_time ASC
+  ORDER BY registration ASC, trip_date ASC, start_time ASC
 `);
 
 const getSparesForTrip = db.prepare(`
   SELECT * FROM trip_spares WHERE trip_id = ? ORDER BY created_at ASC
 `);
 
-const getReportForDate = db.prepare(`
-  SELECT * FROM daily_reports WHERE report_date = ?
+const getVehicle = db.prepare(`
+  SELECT description FROM vehicles WHERE registration = ?
+`);
+
+const getAllLocations = db.prepare(`
+  SELECT * FROM locations
 `);
 
 /**
@@ -77,156 +90,175 @@ export async function sendReminder(date) {
 }
 
 /**
- * Send weekly report email with per-day breakdown.
- * Covers the previous Monday–Sunday week.
+ * Haversine distance in meters between two GPS points.
  */
-export async function sendWeeklyReport() {
-  // Calculate last week's Monday and Sunday
-  const now = new Date();
-  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon
-  const lastMonday = new Date(now);
-  lastMonday.setDate(now.getDate() - dayOfWeek - 6); // previous Monday
-  const lastSunday = new Date(lastMonday);
-  lastSunday.setDate(lastMonday.getDate() + 6);
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
-  const fromDate = lastMonday.toISOString().slice(0, 10);
-  const toDate = lastSunday.toISOString().slice(0, 10);
+/**
+ * Find a custom location name for given coordinates (within 100m).
+ */
+function findLocationName(lat, lng, locations) {
+  if (!lat || !lng) return null;
+  for (const loc of locations) {
+    if (haversineMeters(lat, lng, loc.lat, loc.lng) <= 100) return loc.name;
+  }
+  return null;
+}
 
-  const trips = getTripsForDateRange.all(fromDate, toDate);
+/**
+ * Format minutes as "Xh Ym" or "Ym".
+ */
+function formatDuration(minutes) {
+  if (!minutes || minutes <= 0) return '-';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
 
-  if (trips.length === 0) {
-    console.log(`[email] No trips for week ${fromDate} to ${toDate}. Skipping weekly report.`);
+/**
+ * Clean address: strip ", Western Cape, South Africa" suffix.
+ */
+function cleanAddress(addr) {
+  if (!addr) return 'Unknown';
+  return addr.replace(/,?\s*Western Cape,?\s*South Africa\s*$/i, '').trim() || addr;
+}
+
+/**
+ * Send weekly jobcard report email grouped by driver.
+ * Covers the previous Monday–Sunday week (or custom range).
+ * Only includes business trips.
+ */
+export async function sendWeeklyReport(overrideFrom, overrideTo) {
+  let fromDate, toDate;
+
+  if (overrideFrom && overrideTo) {
+    fromDate = overrideFrom;
+    toDate = overrideTo;
+  } else {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const lastMonday = new Date(now);
+    lastMonday.setDate(now.getDate() - dayOfWeek - 6);
+    const lastSunday = new Date(lastMonday);
+    lastSunday.setDate(lastMonday.getDate() + 6);
+
+    fromDate = lastMonday.toISOString().slice(0, 10);
+    toDate = lastSunday.toISOString().slice(0, 10);
+  }
+
+  const businessTrips = getBusinessTripsForDateRange.all(fromDate, toDate);
+  // Also get all trips (including private) to calculate labour gaps accurately
+  const allTrips = getAllTripsForDateRange.all(fromDate, toDate);
+  const locations = getAllLocations.all();
+
+  if (businessTrips.length === 0) {
+    console.log(`[email] No business trips for ${fromDate} to ${toDate}. Skipping jobcard report.`);
     return { sent: false, reason: 'no_trips' };
   }
 
-  // Group trips by date
-  const byDate = {};
-  for (const trip of trips) {
-    if (!byDate[trip.trip_date]) byDate[trip.trip_date] = [];
-    byDate[trip.trip_date].push(trip);
+  // Group ALL trips by vehicle+date for labour calculation
+  const allByVehicleDate = {};
+  for (const t of allTrips) {
+    const key = `${t.registration}|${t.trip_date}`;
+    if (!allByVehicleDate[key]) allByVehicleDate[key] = [];
+    allByVehicleDate[key].push(t);
   }
 
-  // Weekly totals
-  let weekTotalKm = 0;
-  let weekTotalTrips = 0;
-  let weekBusinessTrips = 0;
-  let weekPrivateTrips = 0;
+  // Group business trips by vehicle
+  const byVehicle = {};
+  for (const t of businessTrips) {
+    if (!byVehicle[t.registration]) byVehicle[t.registration] = [];
+    byVehicle[t.registration].push(t);
+  }
 
-  // Build per-day HTML sections
-  const daysSorted = Object.keys(byDate).sort();
-  const daySections = daysSorted.map(date => {
-    const dayTrips = byDate[date];
-    const dayFormatted = new Date(date + 'T00:00:00').toLocaleDateString('en-ZA', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
+  // Build per-driver sections
+  const driverSections = Object.entries(byVehicle).map(([reg, trips]) => {
+    const vehicle = getVehicle.get(reg);
+    const driverName = vehicle ? vehicle.description : reg;
 
-    const report = getReportForDate.get(date);
-    const dayKm = dayTrips.reduce((s, t) => s + (t.distance_km || 0), 0);
-    const dayBusiness = dayTrips.filter(t => t.is_business !== 0).length;
-    const dayPrivate = dayTrips.length - dayBusiness;
+    const jobEntries = trips.map((trip, idx) => {
+      // Customer: use custom location name, geofence, or cleaned address
+      const locationName = findLocationName(trip.end_lat, trip.end_lng, locations);
+      const customer = locationName || cleanAddress(trip.end_address);
 
-    weekTotalKm += dayKm;
-    weekTotalTrips += dayTrips.length;
-    weekBusinessTrips += dayBusiness;
-    weekPrivateTrips += dayPrivate;
+      // Traveltime: driving duration
+      const traveltime = formatDuration(trip.duration_minutes);
 
-    const tripRows = dayTrips.map(t => {
-      const time = t.start_time
-        ? new Date(t.start_time).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
-        : '';
-      const endT = t.end_time
-        ? new Date(t.end_time).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
-        : '';
-      const from = t.start_address || 'Unknown';
-      const to = t.end_address || 'Unknown';
-      const dist = t.distance_km ? t.distance_km.toFixed(1) : '0.0';
-      const type = t.is_business === 0 ? 'Private' : 'Business';
-      const typeColor = t.is_business === 0 ? '#a78bfa' : '#60a5fa';
-      const desc = t.user_description || '<em style="color:#8b8fa3;">No description</em>';
+      // Kilometers
+      const km = trip.distance_km ? `${trip.distance_km.toFixed(1)} km` : '0 km';
 
-      // Get spares for this trip
-      const spares = getSparesForTrip.all(t.id);
+      // Labour: time at customer = gap between this trip's end_time and next trip's start_time
+      const dayTrips = allByVehicleDate[`${reg}|${trip.trip_date}`] || [];
+      const tripIdx = dayTrips.findIndex(t => t.id === trip.id);
+      let labour = '-';
+      if (tripIdx >= 0 && tripIdx < dayTrips.length - 1) {
+        const nextTrip = dayTrips[tripIdx + 1];
+        const endMs = new Date(trip.end_time).getTime();
+        const nextStartMs = new Date(nextTrip.start_time).getTime();
+        const gapMinutes = (nextStartMs - endMs) / 60000;
+        if (gapMinutes > 0 && gapMinutes < 480) { // cap at 8h to avoid overnight gaps
+          labour = formatDuration(gapMinutes);
+        }
+      }
+
+      // Date formatted
+      const dateStr = new Date(trip.trip_date + 'T00:00:00').toLocaleDateString('en-ZA', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      });
+
+      // Job description
+      const desc = trip.user_description
+        ? `<span>${escapeHtml(trip.user_description)}</span>`
+        : '<span style="color:#999;font-style:italic;">No description</span>';
+
+      // Spares
+      const spares = getSparesForTrip.all(trip.id);
       const sparesHtml = spares.length > 0
-        ? `<div style="margin-top:4px;"><strong>Spares:</strong> ${spares.map(s => `${s.spare_name} x${s.quantity}`).join(', ')}</div>`
+        ? spares.map(s => `<span>&bull; ${escapeHtml(s.spare_name)} x${s.quantity}</span>`).join('<br/>')
+        : '<span style="color:#999;font-style:italic;">None</span>';
+
+      // Separator between entries (not before the first one)
+      const separator = idx > 0
+        ? '<tr><td colspan="2" style="padding:8px 0;"><hr style="border:none;border-top:1px dashed #ccc;margin:0;"/></td></tr>'
         : '';
 
       return `
-        <tr style="border-bottom:1px solid #2a2e3a;">
-          <td style="padding:8px;vertical-align:top;white-space:nowrap;">${time} - ${endT}</td>
-          <td style="padding:8px;vertical-align:top;">
-            <div>${from}</div>
-            <div style="color:#8b8fa3;">&#8594; ${to}</div>
-          </td>
-          <td style="padding:8px;vertical-align:top;text-align:right;">${dist} km</td>
-          <td style="padding:8px;vertical-align:top;"><span style="color:${typeColor};font-weight:600;">${type}</span></td>
-          <td style="padding:8px;vertical-align:top;">
-            <div>${desc}</div>
-            ${sparesHtml}
-          </td>
-        </tr>`;
+        ${separator}
+        <tr><td style="padding:4px 0;font-weight:600;width:120px;vertical-align:top;">Date:</td><td style="padding:4px 0;">${dateStr}</td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Customer:</td><td style="padding:4px 0;">${escapeHtml(customer)}</td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Traveltime:</td><td style="padding:4px 0;">${traveltime}</td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Kilometers:</td><td style="padding:4px 0;">${km}</td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Labour:</td><td style="padding:4px 0;">${labour}</td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Job Description:</td><td style="padding:4px 0;">${desc}</td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Spares:</td><td style="padding:4px 0;">${sparesHtml}</td></tr>`;
     }).join('');
 
-    const notesHtml = report && report.notes
-      ? `<div style="margin:8px 0;padding:8px 12px;background:#1e293b;border-radius:6px;color:#e4e6eb;font-size:13px;"><strong>Day Notes:</strong> ${escapeHtml(report.notes)}</div>`
-      : '';
-
     return `
-      <div style="margin-bottom:24px;">
-        <h3 style="color:#e4e6eb;margin:0 0 4px 0;font-size:15px;">${dayFormatted}</h3>
-        <div style="display:flex;gap:12px;margin-bottom:8px;font-size:12px;color:#8b8fa3;">
-          <span>${dayTrips.length} trips</span>
-          <span>${dayKm.toFixed(1)} km</span>
-          <span style="color:#60a5fa;">${dayBusiness} business</span>
-          <span style="color:#a78bfa;">${dayPrivate} private</span>
-        </div>
-        ${notesHtml}
-        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#e4e6eb;">
-          <thead>
-            <tr style="border-bottom:2px solid #2a2e3a;color:#8b8fa3;text-align:left;">
-              <th style="padding:6px 8px;">Time</th>
-              <th style="padding:6px 8px;">Route</th>
-              <th style="padding:6px 8px;text-align:right;">Dist</th>
-              <th style="padding:6px 8px;">Type</th>
-              <th style="padding:6px 8px;">Description</th>
-            </tr>
-          </thead>
-          <tbody>${tripRows}</tbody>
+      <div style="margin-bottom:32px;">
+        <h2 style="font-size:16px;text-decoration:underline;margin:0 0 4px 0;">Weekly Jobcard Report &ndash; ${fromDate} to ${toDate}</h2>
+        <p style="margin:4px 0 12px 0;font-size:14px;">Driver's Name: <strong>${escapeHtml(driverName)}</strong></p>
+        <hr style="border:none;border-top:2px solid #333;margin:0 0 16px 0;" />
+        <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;">
+          ${jobEntries}
         </table>
       </div>`;
-  }).join('');
+  }).join('<div style="page-break-before:always;margin:24px 0;border-top:3px solid #333;"></div>');
 
-  const subject = `E-Pro Weekly Report: ${fromDate} to ${toDate}`;
+  const subject = `E-Pro Weekly Jobcard Report: ${fromDate} to ${toDate}`;
 
   const html = `
-    <div style="font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1117;color:#e4e6eb;padding:24px;max-width:800px;margin:0 auto;">
-      <h1 style="font-size:20px;font-weight:700;margin:0 0 4px 0;color:#e4e6eb;">E-Pro Weekly Trip Report</h1>
-      <p style="color:#8b8fa3;margin:0 0 20px 0;font-size:14px;">${fromDate} to ${toDate}</p>
-
-      <div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
-        <div style="background:#1a1d27;border:1px solid #2a2e3a;border-radius:8px;padding:12px 20px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:#4f8cff;">${weekTotalTrips}</div>
-          <div style="font-size:12px;color:#8b8fa3;">Total Trips</div>
-        </div>
-        <div style="background:#1a1d27;border:1px solid #2a2e3a;border-radius:8px;padding:12px 20px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:#34d399;">${weekTotalKm.toFixed(1)}</div>
-          <div style="font-size:12px;color:#8b8fa3;">Total KM</div>
-        </div>
-        <div style="background:#1a1d27;border:1px solid #2a2e3a;border-radius:8px;padding:12px 20px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:#60a5fa;">${weekBusinessTrips}</div>
-          <div style="font-size:12px;color:#8b8fa3;">Business</div>
-        </div>
-        <div style="background:#1a1d27;border:1px solid #2a2e3a;border-radius:8px;padding:12px 20px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:#a78bfa;">${weekPrivateTrips}</div>
-          <div style="font-size:12px;color:#8b8fa3;">Private</div>
-        </div>
-      </div>
-
-      <hr style="border:none;border-top:1px solid #2a2e3a;margin:0 0 20px 0;" />
-
-      ${daySections}
-
-      <hr style="border:none;border-top:1px solid #2a2e3a;margin:20px 0;" />
-      <p style="color:#8b8fa3;font-size:12px;margin:0;">Generated by E-Pro Trip Manager</p>
+    <div style="font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;color:#222;padding:24px;max-width:700px;margin:0 auto;">
+      ${driverSections}
+      <hr style="border:none;border-top:1px solid #ccc;margin:24px 0 8px 0;" />
+      <p style="color:#999;font-size:11px;margin:0;">Generated by E-Pro Trip Manager</p>
     </div>`;
 
   await getTransporter().sendMail({
@@ -236,8 +268,8 @@ export async function sendWeeklyReport() {
     html,
   });
 
-  console.log(`[email] Weekly report sent for ${fromDate} to ${toDate} (${weekTotalTrips} trips)`);
-  return { sent: true, from: fromDate, to: toDate, totalTrips: weekTotalTrips };
+  console.log(`[email] Weekly jobcard report sent for ${fromDate} to ${toDate} (${businessTrips.length} business trips)`);
+  return { sent: true, from: fromDate, to: toDate, totalTrips: businessTrips.length };
 }
 
 function escapeHtml(str) {

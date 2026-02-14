@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { requireAdmin } from '../middleware/auth.js';
+import { sendWeeklyReport } from '../services/emailService.js';
 
 const router = Router();
 
@@ -57,6 +59,18 @@ router.get('/', (req, res) => {
   }
 
   res.json({ exists: true, ...report });
+});
+
+// POST /api/reports/send-weekly — manually trigger weekly report email (admin only)
+// Optional body: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" } to override date range
+router.post('/send-weekly', requireAdmin, async (req, res) => {
+  try {
+    const result = await sendWeeklyReport(req.body.from, req.body.to);
+    res.json(result);
+  } catch (err) {
+    console.error('[reports] Manual weekly report failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;
