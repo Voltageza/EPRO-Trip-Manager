@@ -232,6 +232,35 @@ export async function deleteLocationApi(id) {
   return res.json();
 }
 
+// ===== Job Linking API =====
+
+export async function fetchOpenJobs() {
+  const res = await authFetch(`${BASE}/jobs/open/list`);
+  if (!res.ok) throw new Error('Failed to fetch open jobs');
+  return res.json();
+}
+
+export async function linkTripToJob(jobId, tripId, complete = false) {
+  const res = await authFetch(`${BASE}/jobs/${jobId}/link-trip`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trip_id: tripId, complete }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to link trip');
+  }
+  return res.json();
+}
+
+export async function unlinkTripFromJob(jobId, tripId) {
+  const res = await authFetch(`${BASE}/jobs/${jobId}/unlink-trip/${tripId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to unlink trip');
+  return res.json();
+}
+
 export async function unmergeTrip(tripId) {
   const res = await authFetch(`${BASE}/trips/${tripId}/unmerge`, {
     method: 'POST',

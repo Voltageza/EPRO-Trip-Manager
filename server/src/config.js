@@ -33,4 +33,8 @@ export default {
   syncCron: process.env.SYNC_CRON || '0 6 * * *',
   reminderCron: process.env.REMINDER_CRON || '0 7 * * *',
   weeklyReportCron: process.env.WEEKLY_REPORT_CRON || '0 6 * * 1',
+
+  // Make.com webhook for To-Do sync
+  makecomWebhookUrl: process.env.MAKECOM_WEBHOOK_URL || '',
+  makecomWebhookSecret: process.env.MAKECOM_WEBHOOK_SECRET || '',
 };

@@ -5,6 +5,7 @@ import { resolve, dirname, extname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import db from '../db.js';
+import { fireWebhook } from '../services/webhookService.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const uploadsDir = resolve(__dirname, '../../uploads');
@@ -100,6 +101,24 @@ router.get('/', (req, res) => {
   }
 });
 
+// GET /api/jobs/open/list — list open (non-complete) jobs for linking UI
+// Must be before /:id to avoid matching "open" as an id
+router.get('/open/list', (req, res) => {
+  try {
+    const jobs = db.prepare(`
+      SELECT j.id, j.reference_number, j.description, j.status, j.assigned_to,
+             c.name as customer_name
+      FROM jobs j
+      LEFT JOIN customers c ON j.customer_id = c.id
+      WHERE j.status NOT IN ('complete', 'incomplete')
+      ORDER BY j.created_at DESC
+    `).all();
+    res.json(jobs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/jobs/:id — single job with photos
 router.get('/:id', (req, res) => {
   try {
@@ -166,6 +185,12 @@ router.post('/', (req, res) => {
     `).get(result.lastInsertRowid);
 
     res.status(201).json(job);
+
+    // Fire webhook: job_created (if assigned, also fires as job_assigned)
+    fireWebhook('job_created', job);
+    if (job.assigned_to) {
+      fireWebhook('job_assigned', job);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -221,6 +246,14 @@ router.patch('/:id', (req, res) => {
     `).get(req.params.id);
 
     res.json(updated);
+
+    // Fire webhooks on relevant status changes
+    if (req.body.assigned_to && req.body.assigned_to !== job.assigned_to) {
+      fireWebhook('job_assigned', updated);
+    }
+    if (req.body.status === 'complete' && job.status !== 'complete') {
+      fireWebhook('job_completed', updated);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -286,6 +319,106 @@ router.delete('/:id/photos/:photoId', (req, res) => {
 
     db.prepare('DELETE FROM job_photos WHERE id = ?').run(req.params.photoId);
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/jobs/:id/link-trip — link a trip to a job (and optionally complete it)
+router.post('/:id/link-trip', (req, res) => {
+  try {
+    const { trip_id, complete } = req.body;
+    if (!trip_id) return res.status(400).json({ error: 'trip_id is required' });
+
+    const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(trip_id);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    // Check not already linked
+    const existing = db.prepare(
+      'SELECT * FROM job_trips WHERE job_id = ? AND trip_id = ?'
+    ).get(req.params.id, trip_id);
+    if (existing) return res.status(409).json({ error: 'Trip already linked to this job' });
+
+    // Link the trip
+    db.prepare(
+      'INSERT INTO job_trips (job_id, trip_id) VALUES (?, ?)'
+    ).run(req.params.id, trip_id);
+
+    // Optionally mark job as complete
+    const now = new Date().toISOString();
+    if (complete) {
+      db.prepare(
+        'UPDATE jobs SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?'
+      ).run('complete', now, now, req.params.id);
+    }
+
+    // Fetch updated job for response + webhook
+    const updated = db.prepare(`
+      SELECT j.*,
+             c.name as customer_name, c.phone as customer_phone, c.address as customer_address,
+             u.display_name as created_by_name
+      FROM jobs j
+      LEFT JOIN customers c ON j.customer_id = c.id
+      LEFT JOIN users u ON j.created_by = u.id
+      WHERE j.id = ?
+    `).get(req.params.id);
+
+    // Fetch linked trips
+    const linkedTrips = db.prepare(`
+      SELECT t.id, t.trip_date, t.start_time, t.end_time,
+             t.start_address, t.end_address, t.distance_km,
+             t.registration
+      FROM job_trips jt
+      JOIN trips t ON jt.trip_id = t.id
+      WHERE jt.job_id = ?
+      ORDER BY t.start_time
+    `).all(req.params.id);
+
+    res.json({ ...updated, linked_trips: linkedTrips });
+
+    // Fire webhook if job was completed
+    if (complete && job.status !== 'complete') {
+      fireWebhook('job_completed', updated);
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/jobs/:id/unlink-trip/:tripId — unlink a trip from a job
+router.delete('/:id/unlink-trip/:tripId', (req, res) => {
+  try {
+    const link = db.prepare(
+      'SELECT * FROM job_trips WHERE job_id = ? AND trip_id = ?'
+    ).get(req.params.id, req.params.tripId);
+    if (!link) return res.status(404).json({ error: 'Link not found' });
+
+    db.prepare(
+      'DELETE FROM job_trips WHERE job_id = ? AND trip_id = ?'
+    ).run(req.params.id, req.params.tripId);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/jobs/:id/linked-trips — get trips linked to a job
+router.get('/:id/linked-trips', (req, res) => {
+  try {
+    const trips = db.prepare(`
+      SELECT t.id, t.trip_date, t.start_time, t.end_time,
+             t.start_address, t.end_address, t.distance_km,
+             t.registration, t.user_description
+      FROM job_trips jt
+      JOIN trips t ON jt.trip_id = t.id
+      WHERE jt.job_id = ?
+      ORDER BY t.start_time
+    `).all(req.params.id);
+    res.json(trips);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

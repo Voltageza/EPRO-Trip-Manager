@@ -151,6 +151,14 @@ export async function deletePhoto(jobId, photoId) {
   return res.json();
 }
 
+// ===== Linked Trips =====
+
+export async function fetchLinkedTrips(jobId) {
+  const res = await authFetch(`${BASE}/jobs/${jobId}/linked-trips`);
+  if (!res.ok) throw new Error('Failed to fetch linked trips');
+  return res.json();
+}
+
 // ===== Electricians =====
 
 export async function fetchElectricians() {

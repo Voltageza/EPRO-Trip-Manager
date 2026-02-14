@@ -1177,6 +1177,52 @@ input, select, textarea, button {
 }
 
 /* ===== Responsive ===== */
+/* ===== Linked Trips ===== */
+
+.detail-linked-trips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.linked-trip-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.linked-trip-date {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 50px;
+}
+
+.linked-trip-time {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.linked-trip-km {
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.linked-trip-desc {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
 @media (max-width: 640px) {
   .main-content { padding: 16px; }
   .top-nav { padding: 0 16px; }
@@ -1187,4 +1233,5 @@ input, select, textarea, button {
   .job-form-container { padding: 20px; }
   .detail-section { padding: 16px; }
   .detail-photo { width: 100px; height: 100px; }
+  .linked-trip-item { flex-wrap: wrap; }
 }

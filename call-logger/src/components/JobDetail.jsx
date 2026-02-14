@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchJob, updateJob, deleteJob, uploadPhotos, deletePhoto, fetchElectricians } from '../api/api.js';
+import { fetchJob, updateJob, deleteJob, uploadPhotos, deletePhoto, fetchElectricians, fetchLinkedTrips } from '../api/api.js';
 
 const STATUS_OPTIONS = [
   { value: 'unassigned', label: 'Unassigned' },
@@ -18,6 +18,7 @@ export default function JobDetail({ jobId, onBack, onUpdated }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState('');
+  const [linkedTrips, setLinkedTrips] = useState([]);
 
   const loadJob = async () => {
     try {
@@ -34,6 +35,9 @@ export default function JobDetail({ jobId, onBack, onUpdated }) {
     loadJob();
     fetchElectricians()
       .then(setElectricians)
+      .catch(() => {});
+    fetchLinkedTrips(jobId)
+      .then(setLinkedTrips)
       .catch(() => {});
   }, [jobId]);
 
@@ -294,6 +298,36 @@ export default function JobDetail({ jobId, onBack, onUpdated }) {
           <p className="wa-hint">Add a phone number for {job.assigned_to} in Electricians to enable WhatsApp.</p>
         ) : null}
       </div>
+
+      {/* Linked Trips */}
+      {linkedTrips.length > 0 && (
+        <div className="detail-section">
+          <h3>Linked Trips ({linkedTrips.length})</h3>
+          <div className="detail-linked-trips">
+            {linkedTrips.map(trip => {
+              const date = new Date(trip.trip_date || trip.start_time).toLocaleDateString('en-ZA', {
+                day: 'numeric', month: 'short',
+              });
+              const startT = trip.start_time
+                ? new Date(trip.start_time).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
+                : '';
+              const endT = trip.end_time
+                ? new Date(trip.end_time).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
+                : '';
+              return (
+                <div key={trip.id} className="linked-trip-item">
+                  <span className="linked-trip-date">{date}</span>
+                  <span className="linked-trip-time">{startT} — {endT}</span>
+                  <span className="linked-trip-km">{(trip.distance_km || 0).toFixed(1)} km</span>
+                  {trip.user_description && (
+                    <span className="linked-trip-desc">{trip.user_description}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Photos */}
       <div className="detail-section">

@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { saveDescription, unmergeTrip, createLocationApi } from '../api/tripsApi.js';
+import { saveDescription, unmergeTrip, createLocationApi, fetchOpenJobs, linkTripToJob, unlinkTripFromJob } from '../api/tripsApi.js';
 import BusinessToggle from './BusinessToggle.jsx';
 import SparesInput from './SparesInput.jsx';
+import JobLinker from './JobLinker.jsx';
 
 // Haversine distance in metres between two lat/lng pairs
 function haversineMetres(lat1, lng1, lat2, lng2) {
@@ -311,6 +312,8 @@ export default function TripCard({
           </div>
 
           <SparesInput trip={trip} onUpdate={onUpdate} />
+
+          <JobLinker trip={trip} onUpdate={onUpdate} onTripsReload={onTripsReload} />
 
           <div className="trip-description">
             <div className="trip-desc-row">

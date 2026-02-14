@@ -17,6 +17,7 @@ import locationsRouter from './routes/locations.js';
 import customersRouter from './routes/customers.js';
 import jobsRouter from './routes/jobs.js';
 import microsoftRouter from './routes/microsoft.js';
+import webhooksRouter from './routes/webhooks.js';
 import { requireAuth } from './middleware/auth.js';
 import { syncTrips, yesterday } from './services/tripSync.js';
 import { sendReminder, sendWeeklyReport } from './services/emailService.js';
@@ -44,6 +45,7 @@ app.use('/api/locations', requireAuth, locationsRouter);
 app.use('/api/customers', requireAuth, customersRouter);
 app.use('/api/jobs', requireAuth, jobsRouter);
 app.use('/api/microsoft', microsoftRouter);          // has own auth per-route (callback must be public)
+app.use('/api/webhooks', webhooksRouter);            // incoming webhooks (secret-based auth)
 app.use('/api/admin', adminRouter);                 // has own auth middleware
 
 // Serve call-logger in production

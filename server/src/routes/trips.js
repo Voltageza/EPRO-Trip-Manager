@@ -28,6 +28,16 @@ const getMergedFrom = db.prepare(`
   SELECT id FROM trips WHERE merged_into = ?
 `);
 
+const getLinkedJob = db.prepare(`
+  SELECT j.id, j.reference_number, j.status, j.description, j.assigned_to,
+         c.name as customer_name
+  FROM job_trips jt
+  JOIN jobs j ON jt.job_id = j.id
+  LEFT JOIN customers c ON j.customer_id = c.id
+  WHERE jt.trip_id = ?
+  LIMIT 1
+`);
+
 // GET /api/trips?from=YYYY-MM-DD&to=YYYY-MM-DD
 router.get('/', (req, res) => {
   const today = new Date();
@@ -40,13 +50,14 @@ router.get('/', (req, res) => {
 
   const trips = getTrips.all(from, to);
 
-  // Embed spares and merged_from into each trip
+  // Embed spares, merged_from, and linked job into each trip
   const tripsWithExtras = trips.map(trip => ({
     ...trip,
     spares: getSparesByTrip.all(trip.id),
     merged_from: trip.merge_snapshot
       ? getMergedFrom.all(trip.id).map(r => r.id)
       : [],
+    linked_job: getLinkedJob.get(trip.id) || null,
   }));
 
   res.json(tripsWithExtras);
