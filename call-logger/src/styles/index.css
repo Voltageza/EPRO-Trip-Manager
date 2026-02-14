@@ -451,11 +451,25 @@ input, select, textarea, button {
   margin-bottom: 8px;
 }
 
-.job-ref {
+.job-customer-name {
+  font-size: 1.05rem;
   font-weight: 700;
-  font-size: .9rem;
-  color: var(--gray-700);
+  color: var(--gray-900);
+}
+
+.job-customer-phone {
+  font-weight: 400;
+  font-size: .8rem;
+  color: var(--gray-400);
+}
+
+.job-ref {
+  font-weight: 500;
+  font-size: .75rem;
+  color: var(--gray-400);
   font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+  display: block;
 }
 
 .job-badges {
@@ -464,14 +478,6 @@ input, select, textarea, button {
 }
 
 .job-card-body { margin-bottom: 8px; }
-
-.job-customer {
-  font-size: .85rem;
-  color: var(--gray-700);
-  margin-bottom: 4px;
-}
-
-.job-customer span { color: var(--gray-500); }
 
 .job-description {
   font-size: .85rem;

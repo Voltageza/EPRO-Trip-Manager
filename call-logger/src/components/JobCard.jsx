@@ -25,7 +25,12 @@ export default function JobCard({ job, onClick }) {
   return (
     <div className={`job-card job-card--${job.status}`} onClick={() => onClick(job)}>
       <div className="job-card-header">
-        <span className="job-ref">{job.reference_number}</span>
+        {job.customer_name && (
+          <div className="job-customer-name">
+            {job.customer_name}
+            {job.customer_phone && <span className="job-customer-phone"> &middot; {job.customer_phone}</span>}
+          </div>
+        )}
         <div className="job-badges">
           {job.priority !== 'normal' && (
             <span className={`badge badge-priority-${job.priority}`}>
@@ -39,12 +44,7 @@ export default function JobCard({ job, onClick }) {
       </div>
 
       <div className="job-card-body">
-        {job.customer_name && (
-          <div className="job-customer">
-            <strong>{job.customer_name}</strong>
-            {job.customer_phone && <span> &middot; {job.customer_phone}</span>}
-          </div>
-        )}
+        <span className="job-ref">{job.reference_number}</span>
         <div className="job-description">{job.description}</div>
       </div>
 
