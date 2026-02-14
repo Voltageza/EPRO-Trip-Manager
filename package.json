@@ -4,11 +4,12 @@
   "private": true,
   "workspaces": [
     "server",
-    "client"
+    "client",
+    "call-logger"
   ],
   "scripts": {
-    "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
-    "build": "npm run build -w client",
+    "dev": "concurrently -n server,client,calls -c blue,green,magenta \"npm run dev -w server\" \"npm run dev -w client\" \"npm run dev -w call-logger\"",
+    "build": "npm run build -w client && npm run build -w call-logger",
     "start": "npm run start -w server"
   },
   "devDependencies": {

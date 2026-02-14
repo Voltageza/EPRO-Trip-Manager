@@ -121,4 +121,95 @@ if (!usersColumns.find(c => c.name === 'default_vehicle')) {
   db.exec(`ALTER TABLE users ADD COLUMN default_vehicle TEXT`);
 }
 
+// Customers table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT,
+    email TEXT,
+    address TEXT,
+    location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+  );
+`);
+
+// Jobs table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference_number TEXT NOT NULL UNIQUE,
+    customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+    assigned_to TEXT,
+    description TEXT,
+    special_instructions TEXT,
+    status TEXT NOT NULL DEFAULT 'unassigned',
+    priority TEXT NOT NULL DEFAULT 'normal',
+    created_by INTEGER REFERENCES users(id),
+    created_at TEXT NOT NULL,
+    updated_at TEXT,
+    completed_at TEXT
+  );
+`);
+
+// Migration: remove FK on assigned_to (was vehicles.registration, now plain text for electrician names)
+const jobsFKInfo = db.prepare("PRAGMA foreign_key_list(jobs)").all();
+if (jobsFKInfo.some(fk => fk.from === 'assigned_to' && fk.table === 'vehicles')) {
+  db.exec(`
+    CREATE TABLE jobs_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reference_number TEXT NOT NULL UNIQUE,
+      customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+      assigned_to TEXT,
+      description TEXT,
+      special_instructions TEXT,
+      status TEXT NOT NULL DEFAULT 'unassigned',
+      priority TEXT NOT NULL DEFAULT 'normal',
+      created_by INTEGER REFERENCES users(id),
+      created_at TEXT NOT NULL,
+      updated_at TEXT,
+      completed_at TEXT
+    );
+    INSERT INTO jobs_new SELECT * FROM jobs;
+    DROP TABLE jobs;
+    ALTER TABLE jobs_new RENAME TO jobs;
+  `);
+}
+
+// Job photos table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS job_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  );
+`);
+
+// Job-trip linking table (for future use)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS job_trips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    UNIQUE(job_id, trip_id)
+  );
+`);
+
+// Electricians table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS electricians (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    phone TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  );
+`);
+
 export default db;

@@ -4,6 +4,7 @@ import cron from 'node-cron';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
+import { existsSync, mkdirSync } from 'fs';
 import config from './config.js';
 import './db.js'; // ensure schema is created on startup
 import tripsRouter from './routes/trips.js';
@@ -13,6 +14,9 @@ import vehiclesRouter from './routes/vehicles.js';
 import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
 import locationsRouter from './routes/locations.js';
+import customersRouter from './routes/customers.js';
+import jobsRouter from './routes/jobs.js';
+import microsoftRouter from './routes/microsoft.js';
 import { requireAuth } from './middleware/auth.js';
 import { syncTrips, yesterday } from './services/tripSync.js';
 import { sendReminder, sendWeeklyReport } from './services/emailService.js';
@@ -20,8 +24,15 @@ import { sendReminder, sendWeeklyReport } from './services/emailService.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 
+// Ensure uploads directory exists
+const uploadsDir = resolve(__dirname, '../uploads');
+if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
+
 app.use(cors());
 app.use(express.json());
+
+// Static file serving for uploads
+app.use('/uploads', express.static(uploadsDir));
 
 // API routes
 app.use('/api/auth', authRouter);                   // public
@@ -30,13 +41,23 @@ app.use('/api/sync', requireAuth, syncRouter);
 app.use('/api/reports', requireAuth, reportsRouter);
 app.use('/api/vehicles', requireAuth, vehiclesRouter);
 app.use('/api/locations', requireAuth, locationsRouter);
+app.use('/api/customers', requireAuth, customersRouter);
+app.use('/api/jobs', requireAuth, jobsRouter);
+app.use('/api/microsoft', microsoftRouter);          // has own auth per-route (callback must be public)
 app.use('/api/admin', adminRouter);                 // has own auth middleware
 
-// Serve built React app in production
+// Serve call-logger in production
+const callLoggerDist = resolve(__dirname, '../../call-logger/dist');
+app.use('/call-logger', express.static(callLoggerDist));
+app.get('/call-logger/*', (req, res) => {
+  res.sendFile(resolve(callLoggerDist, 'index.html'));
+});
+
+// Serve built React app in production (trip manager — catch-all)
 const clientDist = resolve(__dirname, '../../client/dist');
 app.use(express.static(clientDist));
 app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
   res.sendFile(resolve(clientDist, 'index.html'));
 });
 
