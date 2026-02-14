@@ -5,3 +5,6 @@ trips.db
 trips.db-shm
 trips.db-wal
 *.log
+Jobcard.docx
+jobcard.pdf
+nul
