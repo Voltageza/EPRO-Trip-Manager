@@ -18,15 +18,17 @@ export default function JobList({ onSelectJob, onNewJob, refreshKey }) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     fetchJobs({
       status: statusFilter || undefined,
       assigned_to: electricianFilter || undefined,
       search: search || undefined,
     })
-      .then(setJobs)
+      .then(data => { if (!cancelled) setJobs(data); })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [statusFilter, electricianFilter, search, refreshKey]);
 
   const handleSearchSubmit = (e) => {

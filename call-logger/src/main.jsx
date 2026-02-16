@@ -5,9 +5,7 @@ import AuthGate from './components/AuthGate.jsx';
 import './styles/index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <AuthProvider>
-      <AuthGate />
-    </AuthProvider>
-  </React.StrictMode>
+  <AuthProvider>
+    <AuthGate />
+  </AuthProvider>
 );

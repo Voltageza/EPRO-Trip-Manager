@@ -186,10 +186,12 @@ router.post('/', (req, res) => {
 
     res.status(201).json(job);
 
-    // Fire webhook: job_created (if assigned, also fires as job_assigned)
-    fireWebhook('job_created', job);
+    // Fire webhook: job_assigned creates a To-Do task
+    // Only fire job_created if unassigned (avoids duplicate To-Do tasks)
     if (job.assigned_to) {
       fireWebhook('job_assigned', job);
+    } else {
+      fireWebhook('job_created', job);
     }
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import CustomerSearch from './CustomerSearch.jsx';
 import PhotoUpload from './PhotoUpload.jsx';
 import { createJob, uploadPhotos, fetchElectricians } from '../api/api.js';
@@ -13,6 +13,7 @@ export default function JobForm({ onCreated, onCancel }) {
   const [electricians, setElectricians] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     fetchElectricians()
@@ -22,10 +23,12 @@ export default function JobForm({ onCreated, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     if (!description.trim()) {
       setError('Please enter a job description');
       return;
     }
+    submittingRef.current = true;
     setError('');
     setSubmitting(true);
 
@@ -46,6 +49,7 @@ export default function JobForm({ onCreated, onCancel }) {
     } catch (err) {
       setError(err.message);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
