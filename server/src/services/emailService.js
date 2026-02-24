@@ -54,6 +54,15 @@ const getAllLocations = db.prepare(`
   SELECT * FROM locations
 `);
 
+const getLinkedCustomerName = db.prepare(`
+  SELECT c.name
+  FROM job_trips jt
+  JOIN jobs j ON jt.job_id = j.id
+  LEFT JOIN customers c ON j.customer_id = c.id
+  WHERE jt.trip_id = ?
+  LIMIT 1
+`);
+
 /**
  * Send an email reminder for trips from a given date that lack descriptions.
  */
@@ -182,8 +191,9 @@ export function generateWeeklyReportHtml(overrideFrom, overrideTo) {
     const driverName = vehicle ? vehicle.description : reg;
 
     const jobEntries = trips.map((trip, idx) => {
+      const linkedCustomer = getLinkedCustomerName.get(trip.id);
       const locationName = findLocationName(trip.end_lat, trip.end_lng, locations);
-      const customer = locationName || cleanAddress(trip.end_address);
+      const customer = linkedCustomer?.name || locationName || cleanAddress(trip.end_address);
       const traveltime = formatDuration(trip.duration_minutes);
       const km = trip.distance_km ? `${trip.distance_km.toFixed(1)} km` : '0 km';
 
