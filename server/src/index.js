@@ -20,7 +20,7 @@ import microsoftRouter from './routes/microsoft.js';
 import webhooksRouter from './routes/webhooks.js';
 import { requireAuth } from './middleware/auth.js';
 import { syncTrips, yesterday } from './services/tripSync.js';
-import { sendReminder, sendWeeklyReport } from './services/emailService.js';
+import { sendReminder } from './services/emailService.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -84,19 +84,8 @@ cron.schedule(config.reminderCron, async () => {
   }
 });
 
-// Cron: weekly report (Monday mornings)
-cron.schedule(config.weeklyReportCron, async () => {
-  console.log('[cron] Sending weekly report...');
-  try {
-    await sendWeeklyReport();
-  } catch (err) {
-    console.error('[cron] Weekly report failed:', err.message);
-  }
-});
-
 app.listen(config.port, () => {
   console.log(`[server] E-Pro Trip Manager running on http://localhost:${config.port}`);
   console.log(`[cron] Auto-sync scheduled: ${config.syncCron}`);
   console.log(`[cron] Email reminder scheduled: ${config.reminderCron}`);
-  console.log(`[cron] Weekly report scheduled: ${config.weeklyReportCron}`);
 });

@@ -261,6 +261,34 @@ export async function unlinkTripFromJob(jobId, tripId) {
   return res.json();
 }
 
+// ===== Weekly Report API =====
+
+export async function previewWeeklyReport(from, to) {
+  const res = await authFetch(`${BASE}/reports/preview-weekly`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to generate preview');
+  }
+  return res.json();
+}
+
+export async function sendWeeklyReportApi(from, to, html) {
+  const res = await authFetch(`${BASE}/reports/send-weekly`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to, html }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to send report');
+  }
+  return res.json();
+}
+
 export async function unmergeTrip(tripId) {
   const res = await authFetch(`${BASE}/trips/${tripId}/unmerge`, {
     method: 'POST',

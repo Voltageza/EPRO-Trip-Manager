@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 export default function Sidebar({
   date, onDateChange, onSynced, trips, open, onToggle,
   vehicles, selectedVehicles, onVehicleSelectionChange, onVehiclesRefresh,
+  view, onViewChange,
 }) {
   const { user, logout } = useAuth();
   const [showUserManager, setShowUserManager] = useState(false);
@@ -28,45 +29,60 @@ export default function Sidebar({
         </div>
 
         <div className="sidebar-section">
-          <div className="sidebar-section-label">Date</div>
-          <DatePicker value={date} onChange={onDateChange} />
-        </div>
-
-        <div className="sidebar-section">
-          <div className="sidebar-section-label">Vehicles</div>
-          <VehicleSelector
-            vehicles={vehicles}
-            selectedVehicles={selectedVehicles}
-            onSelectionChange={onVehicleSelectionChange}
-            onVehiclesRefresh={onVehiclesRefresh}
-          />
-        </div>
-
-        <div className="sidebar-section">
-          <SyncButton date={date} onSynced={onSynced} selectedVehicles={selectedVehicles} />
-        </div>
-
-        <div className="sidebar-section">
-          <div className="sidebar-section-label">Quick Stats</div>
-          <div className="sidebar-stats">
-            <div className="sidebar-stat">
-              <span className="sidebar-stat-label">Trips</span>
-              <span className="sidebar-stat-value">{trips.length}</span>
-            </div>
-            <div className="sidebar-stat">
-              <span className="sidebar-stat-label">Distance</span>
-              <span className="sidebar-stat-value">{totalKm.toFixed(1)} km</span>
-            </div>
-            <div className="sidebar-stat">
-              <span className="sidebar-stat-label">Business</span>
-              <span className="sidebar-stat-value business">{businessCount}</span>
-            </div>
-            <div className="sidebar-stat">
-              <span className="sidebar-stat-label">Private</span>
-              <span className="sidebar-stat-value private">{privateCount}</span>
-            </div>
+          <div className="view-toggle">
+            <button
+              className={`view-toggle-btn ${view === 'trips' ? 'active' : ''}`}
+              onClick={() => onViewChange('trips')}
+            >Trips</button>
+            <button
+              className={`view-toggle-btn ${view === 'reports' ? 'active' : ''}`}
+              onClick={() => onViewChange('reports')}
+            >Reports</button>
           </div>
         </div>
+
+        {view === 'trips' && <>
+          <div className="sidebar-section">
+            <div className="sidebar-section-label">Date</div>
+            <DatePicker value={date} onChange={onDateChange} />
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-label">Vehicles</div>
+            <VehicleSelector
+              vehicles={vehicles}
+              selectedVehicles={selectedVehicles}
+              onSelectionChange={onVehicleSelectionChange}
+              onVehiclesRefresh={onVehiclesRefresh}
+            />
+          </div>
+
+          <div className="sidebar-section">
+            <SyncButton date={date} onSynced={onSynced} selectedVehicles={selectedVehicles} />
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-label">Quick Stats</div>
+            <div className="sidebar-stats">
+              <div className="sidebar-stat">
+                <span className="sidebar-stat-label">Trips</span>
+                <span className="sidebar-stat-value">{trips.length}</span>
+              </div>
+              <div className="sidebar-stat">
+                <span className="sidebar-stat-label">Distance</span>
+                <span className="sidebar-stat-value">{totalKm.toFixed(1)} km</span>
+              </div>
+              <div className="sidebar-stat">
+                <span className="sidebar-stat-label">Business</span>
+                <span className="sidebar-stat-value business">{businessCount}</span>
+              </div>
+              <div className="sidebar-stat">
+                <span className="sidebar-stat-label">Private</span>
+                <span className="sidebar-stat-value private">{privateCount}</span>
+              </div>
+            </div>
+          </div>
+        </>}
 
         <div className="sidebar-user">
           <div className="sidebar-user-info">

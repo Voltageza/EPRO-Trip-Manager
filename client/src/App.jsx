@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import TripDayGroup from './components/TripDayGroup.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import StatusBar from './components/StatusBar.jsx';
+import ReportView from './components/ReportView.jsx';
 
 const STORAGE_KEY = 'epro-selected-vehicles';
 
@@ -34,6 +35,7 @@ export default function App() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [view, setView] = useState('trips'); // 'trips' | 'reports'
 
   // Load locations on mount
   useEffect(() => {
@@ -174,50 +176,58 @@ export default function App() {
         selectedVehicles={selectedVehicles}
         onVehicleSelectionChange={handleVehicleSelectionChange}
         onVehiclesRefresh={handleVehiclesRefresh}
+        view={view}
+        onViewChange={setView}
       />
 
       <main className="main-content">
-        <div className="kpi-row">
-          <div className="kpi-card">
-            <div className="kpi-label">Trips</div>
-            <div className="kpi-value">{visibleTrips.length}</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-label">Distance</div>
-            <div className="kpi-value km">{totalKm.toFixed(1)} km</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-label">Business</div>
-            <div className="kpi-value business">{businessCount}</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-label">Private</div>
-            <div className="kpi-value private">{privateCount}</div>
-          </div>
-        </div>
+        {view === 'reports' ? (
+          <ReportView />
+        ) : (
+          <>
+            <div className="kpi-row">
+              <div className="kpi-card">
+                <div className="kpi-label">Trips</div>
+                <div className="kpi-value">{visibleTrips.length}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-label">Distance</div>
+                <div className="kpi-value km">{totalKm.toFixed(1)} km</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-label">Business</div>
+                <div className="kpi-value business">{businessCount}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-label">Private</div>
+                <div className="kpi-value private">{privateCount}</div>
+              </div>
+            </div>
 
-        {loading && (
-          <div className="loading">
-            <div className="spinner"></div>
-            <span>Loading trips...</span>
-          </div>
+            {loading && (
+              <div className="loading">
+                <div className="spinner"></div>
+                <span>Loading trips...</span>
+              </div>
+            )}
+            {!loading && sortedDates.length === 0 && !status.message && (
+              <div className="empty">No trips for this date.</div>
+            )}
+            {sortedDates.map(d => (
+              <TripDayGroup
+                key={d}
+                date={d}
+                trips={grouped[d]}
+                onTripUpdate={handleTripUpdate}
+                onTripsReload={() => loadTrips(date)}
+                multiVehicleDay={multiVehicleDay}
+                vehicleNames={vehicleNames}
+                locations={locations}
+                onLocationAdded={refreshLocations}
+              />
+            ))}
+          </>
         )}
-        {!loading && sortedDates.length === 0 && !status.message && (
-          <div className="empty">No trips for this date.</div>
-        )}
-        {sortedDates.map(d => (
-          <TripDayGroup
-            key={d}
-            date={d}
-            trips={grouped[d]}
-            onTripUpdate={handleTripUpdate}
-            onTripsReload={() => loadTrips(date)}
-            multiVehicleDay={multiVehicleDay}
-            vehicleNames={vehicleNames}
-            locations={locations}
-            onLocationAdded={refreshLocations}
-          />
-        ))}
       </main>
 
       <StatusBar message={status.message} type={status.type} />

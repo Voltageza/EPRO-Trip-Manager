@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
-import { sendWeeklyReport } from '../services/emailService.js';
+import { sendWeeklyReport, generateWeeklyReportHtml } from '../services/emailService.js';
 
 const router = Router();
 
@@ -61,11 +61,23 @@ router.get('/', (req, res) => {
   res.json({ exists: true, ...report });
 });
 
-// POST /api/reports/send-weekly — manually trigger weekly report email (admin only)
-// Optional body: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" } to override date range
+// POST /api/reports/preview-weekly — generate report HTML without sending
+// Body: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" }
+router.post('/preview-weekly', (req, res) => {
+  try {
+    const result = generateWeeklyReportHtml(req.body.from, req.body.to);
+    res.json(result);
+  } catch (err) {
+    console.error('[reports] Preview weekly report failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/reports/send-weekly — send weekly report email
+// Body: { from: "YYYY-MM-DD", to: "YYYY-MM-DD", html?: "custom HTML" }
 router.post('/send-weekly', requireAdmin, async (req, res) => {
   try {
-    const result = await sendWeeklyReport(req.body.from, req.body.to);
+    const result = await sendWeeklyReport(req.body.from, req.body.to, req.body.html);
     res.json(result);
   } catch (err) {
     console.error('[reports] Manual weekly report failed:', err.message);
