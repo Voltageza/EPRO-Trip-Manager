@@ -65,7 +65,7 @@ router.get('/', (req, res) => {
 
 // PATCH /api/trips/:id — partial update (user_description, is_business)
 router.patch('/:id', (req, res) => {
-  const { user_description, is_business } = req.body;
+  const { user_description, is_business, customer_name } = req.body;
 
   const trip = getTrip.get(req.params.id);
   if (!trip) {
@@ -83,6 +83,11 @@ router.patch('/:id', (req, res) => {
   if (typeof is_business === 'number' || typeof is_business === 'boolean') {
     updates.push('is_business = ?');
     values.push(is_business ? 1 : 0);
+  }
+
+  if (typeof customer_name === 'string') {
+    updates.push('customer_name = ?');
+    values.push(customer_name);
   }
 
   if (updates.length === 0) {

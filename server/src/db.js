@@ -51,6 +51,11 @@ if (!tripsColumns.find(c => c.name === 'merge_snapshot')) {
   db.exec(`ALTER TABLE trips ADD COLUMN merge_snapshot TEXT`);
 }
 
+// Migration: add customer_name column if missing
+if (!tripsColumns.find(c => c.name === 'customer_name')) {
+  db.exec(`ALTER TABLE trips ADD COLUMN customer_name TEXT DEFAULT ''`);
+}
+
 // Vehicles table
 db.exec(`
   CREATE TABLE IF NOT EXISTS vehicles (

@@ -569,6 +569,27 @@ body {
   background: var(--border);
 }
 
+.trip-header-customer {
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.trip-header-customer.business {
+  color: var(--business);
+  background: var(--business-bg);
+}
+
+.trip-header-customer.private {
+  color: var(--private);
+  background: var(--private-bg);
+}
+
 .trip-time {
   font-weight: 600;
   font-size: 0.88rem;
@@ -610,6 +631,49 @@ body {
 
 .trip-card.expanded .trip-expand-icon {
   transform: rotate(180deg);
+}
+
+/* customer name bar - always visible */
+.trip-customer-bar {
+  padding: 0.3rem 1rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+}
+
+.trip-customer-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: text;
+  flex: 1;
+}
+
+.trip-customer-name.trip-customer-empty {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.trip-customer-from-job {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-style: normal;
+}
+
+.trip-customer-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--accent);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
+  padding: 0.1rem 0;
+  width: 100%;
 }
 
 /* card body - collapsible */

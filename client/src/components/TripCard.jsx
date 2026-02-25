@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { saveDescription, unmergeTrip, createLocationApi, fetchOpenJobs, linkTripToJob, unlinkTripFromJob } from '../api/tripsApi.js';
+import { saveDescription, updateTrip, unmergeTrip, createLocationApi, fetchOpenJobs, linkTripToJob, unlinkTripFromJob } from '../api/tripsApi.js';
 import BusinessToggle from './BusinessToggle.jsx';
 import SparesInput from './SparesInput.jsx';
 import JobLinker from './JobLinker.jsx';
@@ -103,6 +103,8 @@ export default function TripCard({
   const [namingEndpoint, setNamingEndpoint] = useState(null); // 'start' | 'end' | null
   const [locationName, setLocationName] = useState('');
   const [savingLocation, setSavingLocation] = useState(false);
+  const [customerName, setCustomerName] = useState(trip.customer_name || '');
+  const [editingCustomer, setEditingCustomer] = useState(false);
   const timerRef = useRef(null);
 
   const dirty = description !== (trip.user_description || '');
@@ -159,6 +161,15 @@ export default function TripCard({
       if (onLocationAdded) onLocationAdded();
     } catch { /* keep form open for retry */ }
     finally { setSavingLocation(false); }
+  }
+
+  async function handleSaveCustomerName() {
+    setEditingCustomer(false);
+    const trimmed = customerName.trim();
+    try {
+      const updated = await updateTrip(trip.id, { customer_name: trimmed });
+      onUpdate(updated);
+    } catch { /* revert UI on next render if needed */ }
   }
 
   // Drag event handlers
@@ -239,6 +250,11 @@ export default function TripCard({
           <span className="drag-handle" title="Drag to merge">&#x2630;</span>
           <span className={`trip-filled-dot ${isFilled ? 'filled' : 'unfilled'}`} />
           <span className="trip-time">{startTime} — {endTime}</span>
+          {(customerName || trip.linked_job?.customer_name) && (
+            <span className={`trip-header-customer ${trip.is_business ? 'business' : 'private'}`}>
+              {customerName || trip.linked_job.customer_name}
+            </span>
+          )}
           <div className="trip-badges">
             {showVehicleBadge && (
               <span className="vehicle-badge">{vehicleNames[trip.registration] || trip.registration}</span>
@@ -258,6 +274,41 @@ export default function TripCard({
           <BusinessToggle trip={trip} onUpdate={onUpdate} />
           <span className="trip-expand-icon">{'\u25BC'}</span>
         </div>
+      </div>
+
+      <div
+        className="trip-customer-bar"
+        onClick={e => e.stopPropagation()}
+      >
+        {editingCustomer ? (
+          <input
+            className="trip-customer-input"
+            type="text"
+            value={customerName}
+            placeholder="Customer name..."
+            autoFocus
+            onChange={e => setCustomerName(e.target.value)}
+            onBlur={handleSaveCustomerName}
+            onKeyDown={e => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+              if (e.key === 'Escape') {
+                setCustomerName(trip.customer_name || '');
+                setEditingCustomer(false);
+              }
+            }}
+          />
+        ) : (
+          <span
+            className={`trip-customer-name${!customerName ? ' trip-customer-empty' : ''}`}
+            title="Click to edit customer name"
+            onClick={() => setEditingCustomer(true)}
+          >
+            {customerName || (trip.linked_job?.customer_name
+              ? <span className="trip-customer-from-job">{trip.linked_job.customer_name}</span>
+              : 'Add customer…'
+            )}
+          </span>
+        )}
       </div>
 
       <div className="trip-card-body">
