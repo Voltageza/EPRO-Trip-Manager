@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import TripCard from './TripCard.jsx';
 import DayReportSubmit from './DayReportSubmit.jsx';
-import { mergeTrips, unmergeTrip } from '../api/tripsApi.js';
+import { mergeTrips, unmergeTrip, sendWeeklyReportApi } from '../api/tripsApi.js';
 
-export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload, multiVehicleDay, vehicleNames = {}, locations = [], onLocationAdded }) {
+export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload, multiVehicleDay, vehicleNames = {}, locations = [], onLocationAdded, claimable = false, onTripClaim, onTripRelease }) {
   const [dragSourceId, setDragSourceId] = useState(null);
   const [dropTargetId, setDropTargetId] = useState(null);
   const [merging, setMerging] = useState(false);
+  const [emailState, setEmailState] = useState('idle'); // 'idle' | 'sending' | 'sent' | 'error'
 
   const dateObj = new Date(date + 'T00:00:00');
   const weekday = dateObj.toLocaleDateString('en-ZA', { weekday: 'long' });
@@ -86,6 +87,73 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload,
     }
   }
 
+  async function handleEmail() {
+    setEmailState('sending');
+    try {
+      await sendWeeklyReportApi(date, date);
+      setEmailState('sent');
+      setTimeout(() => setEmailState('idle'), 3000);
+    } catch {
+      setEmailState('error');
+      setTimeout(() => setEmailState('idle'), 3000);
+    }
+  }
+
+  function handlePrint() {
+    const dateObj2 = new Date(date + 'T00:00:00');
+    const fullDate = dateObj2.toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const totalKm = trips.reduce((s, t) => s + (t.distance_km || 0), 0);
+    const businessCount = trips.filter(t => t.is_business !== 0).length;
+    const privateCount = trips.length - businessCount;
+
+    const rows = trips.map((t, i) => {
+      const start = t.start_time ? new Date(t.start_time).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : '';
+      const end = t.end_time ? new Date(t.end_time).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : '';
+      const km = t.distance_km ? t.distance_km.toFixed(1) + ' km' : '—';
+      const type = t.is_business !== 0 ? 'Business' : 'Private';
+      const typeColor = t.is_business !== 0 ? '#2563eb' : '#7c3aed';
+      const desc = [t.customer_name, t.user_description].filter(Boolean).join(' — ') || '—';
+      const mergedNote = t.merged_from?.length > 0 ? ` <small style="color:#888">(${t.merged_from.length + 1} merged)</small>` : '';
+      const vehicleName = vehicleNames[t.registration] || t.registration;
+      return `<tr>
+        <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;color:#666;">${i + 1}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${start} — ${end}${mergedNote}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${km}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-weight:600;color:${typeColor}">${type}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${vehicleName}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">${desc}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><title>Trip Report — ${fullDate}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#222;padding:28px;font-size:13px}
+    h1{font-size:20px;font-weight:700;margin-bottom:4px}
+    .sub{color:#666;margin-bottom:20px;font-size:13px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#f3f4f6;text-align:left;padding:9px 10px;border-bottom:2px solid #d1d5db;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    .summary{margin-top:18px;padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:13px}
+    @media print{body{padding:16px}}</style></head><body>
+    <h1>Trip Report</h1>
+    <p class="sub">${fullDate}</p>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Time</th><th>Distance</th><th>Type</th><th>Vehicle</th><th>Description / Customer</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="summary">
+      <strong>${trips.length}</strong> trip${trips.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
+      <strong>${totalKm.toFixed(1)} km</strong> &nbsp;·&nbsp;
+      <strong style="color:#2563eb">${businessCount} business</strong> &nbsp;·&nbsp;
+      <strong style="color:#7c3aed">${privateCount} private</strong>
+    </div>
+    <script>window.onload=()=>{window.print();}</script>
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    if (win) { win.document.write(html); win.document.close(); }
+  }
+
   return (
     <div className="day-group">
       <div className="day-header">
@@ -96,6 +164,21 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload,
         <div className="day-header-stats">
           <span className="day-stat">{totalKm.toFixed(1)} km</span>
           <span className="day-count">{filled}/{trips.length} described</span>
+          <div className="day-actions">
+            <button
+              className="day-action-btn"
+              onClick={handlePrint}
+              title="Print day report"
+            >⎙ Print</button>
+            <button
+              className={`day-action-btn${emailState === 'sent' ? ' day-action-btn--success' : emailState === 'error' ? ' day-action-btn--error' : ''}`}
+              onClick={handleEmail}
+              disabled={emailState === 'sending'}
+              title="Email day report"
+            >
+              {emailState === 'sending' ? '...' : emailState === 'sent' ? '✓ Sent' : emailState === 'error' ? '✗ Failed' : '✉ Email'}
+            </button>
+          </div>
         </div>
       </div>
       <div className="day-progress">
@@ -119,7 +202,7 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload,
             trip={trip}
             onUpdate={onTripUpdate}
             onTripsReload={onTripsReload}
-            showVehicleBadge={showVehicleBadge}
+            showVehicleBadge={showVehicleBadge || claimable}
             vehicleNames={vehicleNames}
             locations={locations}
             onLocationAdded={onLocationAdded}
@@ -131,6 +214,9 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload,
             onDragLeaveCard={handleDragLeaveCard}
             onDropOnCard={handleDropOnCard}
             style={{ '--card-index': i }}
+            claimable={claimable}
+            onClaim={onTripClaim}
+            onRelease={onTripRelease}
           />
         ))}
       </div>

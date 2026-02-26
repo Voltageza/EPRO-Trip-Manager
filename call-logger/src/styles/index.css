@@ -1,42 +1,42 @@
 /* ===== CSS Variables ===== */
 :root {
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-light: #dbeafe;
-  --primary-50: #eff6ff;
+  --primary: #60a5fa;
+  --primary-hover: #3b82f6;
+  --primary-light: rgba(96,165,250,0.2);
+  --primary-50: rgba(96,165,250,0.08);
 
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
+  --gray-50: #0f172a;
+  --gray-100: #1e293b;
+  --gray-200: #334155;
+  --gray-300: #475569;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #94a3b8;
+  --gray-700: #cbd5e1;
+  --gray-800: #e2e8f0;
+  --gray-900: #f1f5f9;
 
-  --red-50: #fef2f2;
+  --red-50: rgba(239,68,68,0.12);
   --red-500: #ef4444;
-  --red-600: #dc2626;
-  --red-700: #b91c1c;
+  --red-600: #ef4444;
+  --red-700: #fca5a5;
 
-  --amber-50: #fffbeb;
+  --amber-50: rgba(245,158,11,0.12);
   --amber-500: #f59e0b;
-  --amber-600: #d97706;
-  --amber-700: #b45309;
+  --amber-600: #fbbf24;
+  --amber-700: #fcd34d;
 
-  --green-50: #f0fdf4;
+  --green-50: rgba(34,197,94,0.12);
   --green-500: #22c55e;
-  --green-600: #16a34a;
-  --green-700: #15803d;
+  --green-600: #4ade80;
+  --green-700: #86efac;
 
   --radius: 8px;
   --radius-lg: 12px;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
-  --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,.4), 0 2px 4px -2px rgba(0,0,0,.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.5), 0 4px 6px -4px rgba(0,0,0,.3);
 
   --nav-height: 56px;
 }
@@ -55,6 +55,15 @@ body {
 input, select, textarea, button {
   font-family: inherit;
   font-size: inherit;
+}
+
+input, select, textarea {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--gray-500);
 }
 
 /* ===== Spinner ===== */
@@ -89,7 +98,7 @@ input, select, textarea, button {
 }
 
 .login-card {
-  background: #fff;
+  background: var(--gray-100);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: 40px;
@@ -182,7 +191,7 @@ input, select, textarea, button {
   top: 0;
   z-index: 100;
   height: var(--nav-height);
-  background: #fff;
+  background: var(--gray-100);
   border-bottom: 1px solid var(--gray-200);
   display: flex;
   align-items: center;
@@ -307,13 +316,14 @@ input, select, textarea, button {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--gray-800);
-  color: #fff;
+  background: #0f172a;
+  color: var(--gray-800);
   padding: 10px 24px;
   border-radius: var(--radius);
   font-size: .875rem;
   font-weight: 500;
   box-shadow: var(--shadow-lg);
+  border: 1px solid var(--gray-200);
   z-index: 1000;
   animation: toast-in .25s ease-out;
 }
@@ -389,7 +399,7 @@ input, select, textarea, button {
   border: 1px solid var(--gray-300);
   border-radius: var(--radius);
   font-size: .85rem;
-  background: #fff;
+  background: var(--gray-100);
   outline: none;
   cursor: pointer;
   color: var(--gray-700);
@@ -418,7 +428,7 @@ input, select, textarea, button {
 
 /* ===== Job Card ===== */
 .job-card {
-  background: #fff;
+  background: var(--gray-100);
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   padding: 14px 18px;
@@ -510,7 +520,7 @@ input, select, textarea, button {
 
 /* ===== Job Form ===== */
 .job-form-container {
-  background: #fff;
+  background: var(--gray-100);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   padding: 28px;
@@ -565,7 +575,7 @@ input, select, textarea, button {
   outline: none;
   transition: border-color .15s;
   resize: vertical;
-  background: #fff;
+  background: var(--gray-100);
   color: var(--gray-800);
 }
 
@@ -610,7 +620,7 @@ input, select, textarea, button {
   top: 100%;
   left: 0;
   right: 0;
-  background: #fff;
+  background: var(--gray-100);
   border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
@@ -855,7 +865,7 @@ input, select, textarea, button {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  background: #fff;
+  background: var(--gray-100);
   border-radius: var(--radius-lg);
   padding: 20px 24px;
   box-shadow: var(--shadow);
@@ -879,7 +889,7 @@ input, select, textarea, button {
 }
 
 .detail-section {
-  background: #fff;
+  background: var(--gray-100);
   border-radius: var(--radius-lg);
   padding: 20px 24px;
   box-shadow: var(--shadow-sm);
@@ -951,7 +961,7 @@ input, select, textarea, button {
   border: 1px solid var(--gray-300);
   border-radius: var(--radius);
   font-size: .875rem;
-  background: #fff;
+  background: var(--gray-100);
   outline: none;
   cursor: pointer;
 }
@@ -1043,7 +1053,7 @@ input, select, textarea, button {
   padding: 5px 12px;
   border: 1px solid var(--gray-300);
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--gray-100);
   font-size: .8rem;
   font-weight: 500;
   color: var(--gray-600);
@@ -1090,7 +1100,7 @@ input, select, textarea, button {
   display: flex;
   gap: 8px;
   align-items: center;
-  background: #fff;
+  background: var(--gray-100);
   padding: 14px 18px;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -1121,7 +1131,7 @@ input, select, textarea, button {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: #fff;
+  background: var(--gray-100);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -1191,20 +1201,20 @@ input, select, textarea, button {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
   border-radius: 8px;
   font-size: 0.85rem;
 }
 
 .linked-trip-date {
   font-weight: 600;
-  color: var(--text);
+  color: var(--gray-800);
   min-width: 50px;
 }
 
 .linked-trip-time {
-  color: var(--text-secondary);
+  color: var(--gray-500);
   font-size: 0.82rem;
 }
 
@@ -1215,7 +1225,7 @@ input, select, textarea, button {
 }
 
 .linked-trip-desc {
-  color: var(--text-secondary);
+  color: var(--gray-500);
   font-size: 0.8rem;
   white-space: nowrap;
   overflow: hidden;

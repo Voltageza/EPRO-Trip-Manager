@@ -94,12 +94,14 @@ export default function TripCard({
   locations = [], onLocationAdded,
   isDragging, isDropTarget,
   onDragStart, onDragEnd, onDragEnterCard, onDragLeaveCard, onDropOnCard,
+  claimable = false, onClaim, onRelease,
 }) {
   const [description, setDescription] = useState(trip.user_description || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [unmerging, setUnmerging] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [namingEndpoint, setNamingEndpoint] = useState(null); // 'start' | 'end' | null
   const [locationName, setLocationName] = useState('');
   const [savingLocation, setSavingLocation] = useState(false);
@@ -172,6 +174,24 @@ export default function TripCard({
     } catch { /* revert UI on next render if needed */ }
   }
 
+  async function handleClaim(e) {
+    e.stopPropagation();
+    setClaiming(true);
+    try {
+      if (onClaim) await onClaim(trip.id);
+    } catch { /* parent handles error */ }
+    finally { setClaiming(false); }
+  }
+
+  async function handleRelease(e) {
+    e.stopPropagation();
+    setClaiming(true);
+    try {
+      if (onRelease) await onRelease(trip.id);
+    } catch { /* parent handles error */ }
+    finally { setClaiming(false); }
+  }
+
   // Drag event handlers
   function handleNativeDragStart(e) {
     e.dataTransfer.effectAllowed = 'move';
@@ -237,20 +257,20 @@ export default function TripCard({
     <div
       className={cardClass}
       style={style}
-      draggable={!expanded}
-      onDragStart={handleNativeDragStart}
-      onDragEnd={handleNativeDragEnd}
-      onDragOver={handleNativeDragOver}
-      onDragEnter={handleNativeDragEnter}
-      onDragLeave={handleNativeDragLeave}
-      onDrop={handleNativeDrop}
+      draggable={!expanded && !claimable}
+      onDragStart={claimable ? undefined : handleNativeDragStart}
+      onDragEnd={claimable ? undefined : handleNativeDragEnd}
+      onDragOver={claimable ? undefined : handleNativeDragOver}
+      onDragEnter={claimable ? undefined : handleNativeDragEnter}
+      onDragLeave={claimable ? undefined : handleNativeDragLeave}
+      onDrop={claimable ? undefined : handleNativeDrop}
     >
-      <div className="trip-card-header" onClick={handleHeaderClick}>
+      <div className="trip-card-header" onClick={claimable ? undefined : handleHeaderClick}>
         <div className="trip-header-left">
-          <span className="drag-handle" title="Drag to merge">&#x2630;</span>
+          {!claimable && <span className="drag-handle" title="Drag to merge">&#x2630;</span>}
           <span className={`trip-filled-dot ${isFilled ? 'filled' : 'unfilled'}`} />
           <span className="trip-time">{startTime} — {endTime}</span>
-          {(customerName || trip.linked_job?.customer_name) && (
+          {!claimable && (customerName || trip.linked_job?.customer_name) && (
             <span className={`trip-header-customer ${trip.is_business ? 'business' : 'private'}`}>
               {customerName || trip.linked_job.customer_name}
             </span>
@@ -271,45 +291,60 @@ export default function TripCard({
           </div>
         </div>
         <div className="trip-card-right">
-          <BusinessToggle trip={trip} onUpdate={onUpdate} />
-          <span className="trip-expand-icon">{'\u25BC'}</span>
+          {claimable ? (
+            <button className="claim-btn" onClick={handleClaim} disabled={claiming}>
+              {claiming ? '...' : 'Claim'}
+            </button>
+          ) : (
+            <>
+              <BusinessToggle trip={trip} onUpdate={onUpdate} />
+              {onRelease && (
+                <button className="release-btn" onClick={handleRelease} disabled={claiming} title="Release trip back to pool">
+                  {claiming ? '...' : 'Release'}
+                </button>
+              )}
+              <span className="trip-expand-icon">{'\u25BC'}</span>
+            </>
+          )}
         </div>
       </div>
 
-      <div
-        className="trip-customer-bar"
-        onClick={e => e.stopPropagation()}
-      >
-        {editingCustomer ? (
-          <input
-            className="trip-customer-input"
-            type="text"
-            value={customerName}
-            placeholder="Customer name..."
-            autoFocus
-            onChange={e => setCustomerName(e.target.value)}
-            onBlur={handleSaveCustomerName}
-            onKeyDown={e => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-              if (e.key === 'Escape') {
-                setCustomerName(trip.customer_name || '');
-                setEditingCustomer(false);
-              }
-            }}
-          />
-        ) : (
-          <span
-            className={`trip-customer-name${!customerName ? ' trip-customer-empty' : ''}`}
-            title="Click to edit customer name"
-            onClick={() => setEditingCustomer(true)}
-          >
-            {customerName || (trip.linked_job?.customer_name
-              ? <span className="trip-customer-from-job">{trip.linked_job.customer_name}</span>
-              : 'Add customer…'
-            )}
-          </span>
-        )}
-      </div>
+      {!claimable && (
+        <div
+          className="trip-customer-bar"
+          onClick={e => e.stopPropagation()}
+        >
+          {editingCustomer ? (
+            <input
+              className="trip-customer-input"
+              type="text"
+              value={customerName}
+              placeholder="Customer name..."
+              autoFocus
+              onChange={e => setCustomerName(e.target.value)}
+              onBlur={handleSaveCustomerName}
+              onKeyDown={e => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                if (e.key === 'Escape') {
+                  setCustomerName(trip.customer_name || '');
+                  setEditingCustomer(false);
+                }
+              }}
+            />
+          ) : (
+            <span
+              className={`trip-customer-name${!customerName ? ' trip-customer-empty' : ''}`}
+              title="Click to edit customer name"
+              onClick={() => setEditingCustomer(true)}
+            >
+              {customerName || (trip.linked_job?.customer_name
+                ? <span className="trip-customer-from-job">{trip.linked_job.customer_name}</span>
+                : 'Add customer…'
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="trip-card-body">
         <div className="trip-card-body-inner">
@@ -326,6 +361,12 @@ export default function TripCard({
             <div className="route-timeline">
               <div className="route-dot start"></div>
               <div className="route-line"></div>
+              {(trip.stops || []).map((_, i) => (
+                <React.Fragment key={i}>
+                  <div className="route-dot stop"></div>
+                  <div className="route-line"></div>
+                </React.Fragment>
+              ))}
               <div className="route-dot end"></div>
             </div>
             <div className="route-addresses">
@@ -344,6 +385,27 @@ export default function TripCard({
                 onNameChange={setLocationName}
                 onSaveLocation={handleSaveLocation}
               />
+              {(trip.stops || []).map((stop, i) => {
+                const stopAddr = cleanAddress(stop.address);
+                const savedStopLoc = stop.lat != null ? findNearbyLocation(stop.lat, stop.lng, locations) : null;
+                return (
+                  <div key={i} className="trip-address route-stop-addr">
+                    <span className="route-stop-label">Stop {i + 1}</span>
+                    {stopAddr}
+                    {savedStopLoc && <span className="geo-name">{savedStopLoc.name}</span>}
+                    {!savedStopLoc && stop.lat != null && (
+                      <a
+                        className="geo-link"
+                        href={`https://www.google.com/maps?q=${stop.lat},${stop.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open in Google Maps"
+                        onClick={e => e.stopPropagation()}
+                      >&#x1F4CD;</a>
+                    )}
+                  </div>
+                );
+              })}
               <AddressWithLocation
                 addr={endAddr}
                 geoName={endGeo}

@@ -104,6 +104,33 @@ export async function fetchTrips(from, to) {
   return res.json();
 }
 
+export async function fetchUnclaimedTrips(from, to) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const res = await authFetch(`${BASE}/trips/unclaimed?${params}`);
+  if (!res.ok) throw new Error(`Failed to fetch unclaimed trips: ${res.status}`);
+  return res.json();
+}
+
+export async function claimTrip(tripId) {
+  const res = await authFetch(`${BASE}/trips/${tripId}/claim`, { method: 'POST' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to claim trip: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function unclaimTrip(tripId) {
+  const res = await authFetch(`${BASE}/trips/${tripId}/unclaim`, { method: 'POST' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to release trip: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function saveDescription(tripId, description) {
   const res = await authFetch(`${BASE}/trips/${tripId}`, {
     method: 'PATCH',

@@ -49,12 +49,20 @@ const upsertMany = db.transaction((trips) => {
   return count;
 });
 
+const autoClaimStmt = db.prepare(`
+  UPDATE trips
+  SET claimed_by_user_id = ?, claimed_at = ?, updated_at = ?
+  WHERE registration = ? AND trip_date BETWEEN ? AND ?
+    AND claimed_by_user_id IS NULL AND merged_into IS NULL
+`);
+
 /**
  * Sync trips from Cartrack for a date range.
  * If registrations[] is provided, syncs those vehicles.
  * Otherwise falls back to active vehicles from the DB, then .env.
+ * If userId is provided, newly synced unclaimed trips are auto-claimed for that user.
  */
-export async function syncTrips(fromDate, toDate, registrations) {
+export async function syncTrips(fromDate, toDate, registrations, userId) {
   const regs = registrations && registrations.length > 0
     ? registrations
     : getActiveRegistrations();
@@ -68,6 +76,11 @@ export async function syncTrips(fromDate, toDate, registrations) {
       const trips = await fetchTrips(reg, fromDate, toDate);
       const synced = upsertMany(trips);
       totalSynced += synced;
+      // Auto-claim unclaimed trips for the syncing user
+      if (userId) {
+        const now = new Date().toISOString();
+        autoClaimStmt.run(userId, now, now, reg, fromDate, toDate);
+      }
     } catch (err) {
       console.error(`[sync] Error syncing ${reg}:`, err.message);
       errors.push({ registration: reg, error: err.message });

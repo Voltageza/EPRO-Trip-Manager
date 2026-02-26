@@ -3,9 +3,19 @@ import db from '../db.js';
 
 const router = Router();
 
-const getTrips = db.prepare(`
+const getMyTrips = db.prepare(`
+  SELECT t.*, u.display_name as claimed_by_name
+  FROM trips t
+  LEFT JOIN users u ON t.claimed_by_user_id = u.id
+  WHERE t.trip_date >= ? AND t.trip_date <= ? AND t.merged_into IS NULL
+    AND t.claimed_by_user_id = ?
+  ORDER BY t.start_time ASC
+`);
+
+const getUnclaimedTripsStmt = db.prepare(`
   SELECT * FROM trips
   WHERE trip_date >= ? AND trip_date <= ? AND merged_into IS NULL
+    AND claimed_by_user_id IS NULL
   ORDER BY start_time ASC
 `);
 
@@ -38,29 +48,93 @@ const getLinkedJob = db.prepare(`
   LIMIT 1
 `);
 
-// GET /api/trips?from=YYYY-MM-DD&to=YYYY-MM-DD
-router.get('/', (req, res) => {
+const getAbsorbedEndpoint = db.prepare(
+  'SELECT end_address, end_lat, end_lng FROM trips WHERE id = ?'
+);
+
+function withExtras(trip) {
+  const mergedFromIds = trip.merge_snapshot ? getMergedFrom.all(trip.id).map(r => r.id) : [];
+
+  // Build intermediate stops for merged trips:
+  // Route = start → [primary's orig end] → [each absorbed end except last] → end
+  let stops = [];
+  if (trip.merge_snapshot) {
+    try {
+      const snapshot = JSON.parse(trip.merge_snapshot);
+      const absorbedIds = snapshot.absorbed_ids || [];
+      // First stop: primary trip's original end address (before merge overwrote it)
+      if (snapshot.original?.end_address) {
+        stops.push({
+          address: snapshot.original.end_address,
+          lat: snapshot.original.end_lat ?? null,
+          lng: snapshot.original.end_lng ?? null,
+        });
+      }
+      // Additional stops: each absorbed trip's end EXCEPT the last
+      // (last absorbed trip's end == merged trip's current end_address, already shown)
+      for (let i = 0; i < absorbedIds.length - 1; i++) {
+        const abs = getAbsorbedEndpoint.get(absorbedIds[i]);
+        if (abs) stops.push({ address: abs.end_address, lat: abs.end_lat ?? null, lng: abs.end_lng ?? null });
+      }
+    } catch { /* ignore */ }
+  }
+
+  return {
+    ...trip,
+    spares: getSparesByTrip.all(trip.id),
+    merged_from: mergedFromIds,
+    linked_job: getLinkedJob.get(trip.id) || null,
+    stops,
+  };
+}
+
+function defaultDateRange(req) {
   const today = new Date();
   const yesterdayDate = new Date(today);
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
   const defaultDate = yesterdayDate.toISOString().slice(0, 10);
-
   const from = req.query.from || defaultDate;
   const to = req.query.to || from;
+  return { from, to };
+}
 
-  const trips = getTrips.all(from, to);
+// GET /api/trips?from=YYYY-MM-DD&to=YYYY-MM-DD — trips claimed by current user
+router.get('/', (req, res) => {
+  const { from, to } = defaultDateRange(req);
+  const trips = getMyTrips.all(from, to, req.user.id);
+  res.json(trips.map(withExtras));
+});
 
-  // Embed spares, merged_from, and linked job into each trip
-  const tripsWithExtras = trips.map(trip => ({
-    ...trip,
-    spares: getSparesByTrip.all(trip.id),
-    merged_from: trip.merge_snapshot
-      ? getMergedFrom.all(trip.id).map(r => r.id)
-      : [],
-    linked_job: getLinkedJob.get(trip.id) || null,
-  }));
+// GET /api/trips/unclaimed?from=YYYY-MM-DD&to=YYYY-MM-DD — unclaimed pool
+router.get('/unclaimed', (req, res) => {
+  const { from, to } = defaultDateRange(req);
+  const trips = getUnclaimedTripsStmt.all(from, to);
+  res.json(trips.map(withExtras));
+});
 
-  res.json(tripsWithExtras);
+// POST /api/trips/:id/claim — claim a trip for current user
+router.post('/:id/claim', (req, res) => {
+  const trip = getTrip.get(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  if (trip.claimed_by_user_id && trip.claimed_by_user_id !== req.user.id) {
+    return res.status(409).json({ error: 'Trip already claimed by another user' });
+  }
+  const now = new Date().toISOString();
+  db.prepare('UPDATE trips SET claimed_by_user_id = ?, claimed_at = ?, updated_at = ? WHERE id = ?')
+    .run(req.user.id, now, now, trip.id);
+  const updated = getTrip.get(trip.id);
+  res.json(withExtras(updated));
+});
+
+// POST /api/trips/:id/unclaim — release a trip back to the pool
+router.post('/:id/unclaim', (req, res) => {
+  const trip = getTrip.get(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  const now = new Date().toISOString();
+  db.prepare('UPDATE trips SET claimed_by_user_id = NULL, claimed_at = NULL, updated_at = ? WHERE id = ?')
+    .run(now, trip.id);
+  const updated = getTrip.get(trip.id);
+  res.json(withExtras(updated));
 });
 
 // PATCH /api/trips/:id — partial update (user_description, is_business)
@@ -101,8 +175,7 @@ router.patch('/:id', (req, res) => {
   db.prepare(`UPDATE trips SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
   const updated = getTrip.get(req.params.id);
-  updated.spares = getSparesByTrip.all(updated.id);
-  res.json(updated);
+  res.json(withExtras(updated));
 });
 
 // POST /api/trips/:id/spares — add a spare

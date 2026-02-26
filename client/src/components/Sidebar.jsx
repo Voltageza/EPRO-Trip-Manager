@@ -6,7 +6,7 @@ import UserManager from './UserManager.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Sidebar({
-  date, onDateChange, onSynced, trips, open, onToggle,
+  date, onDateChange, onSynced, trips, unclaimedCount = 0, open, onToggle,
   vehicles, selectedVehicles, onVehicleSelectionChange, onVehiclesRefresh,
   view, onViewChange,
 }) {
@@ -33,7 +33,13 @@ export default function Sidebar({
             <button
               className={`view-toggle-btn ${view === 'trips' ? 'active' : ''}`}
               onClick={() => onViewChange('trips')}
-            >Trips</button>
+            >My Trips</button>
+            <button
+              className={`view-toggle-btn ${view === 'unclaimed' ? 'active' : ''}`}
+              onClick={() => onViewChange('unclaimed')}
+            >
+              Pool{unclaimedCount > 0 && <span className="nav-badge">{unclaimedCount}</span>}
+            </button>
             <button
               className={`view-toggle-btn ${view === 'reports' ? 'active' : ''}`}
               onClick={() => onViewChange('reports')}
@@ -41,7 +47,7 @@ export default function Sidebar({
           </div>
         </div>
 
-        {view === 'trips' && <>
+        {(view === 'trips' || view === 'unclaimed') && <>
           <div className="sidebar-section">
             <div className="sidebar-section-label">Date</div>
             <DatePicker value={date} onChange={onDateChange} />

@@ -30,17 +30,15 @@ const getUnfilledTrips = db.prepare(`
   ORDER BY start_time
 `);
 
-const getBusinessTripsForDateRange = db.prepare(`
-  SELECT * FROM trips
-  WHERE trip_date >= ? AND trip_date <= ? AND merged_into IS NULL AND is_business = 1
-  ORDER BY registration ASC, trip_date ASC, start_time ASC
+const getClaimedBusinessTrips = db.prepare(`
+  SELECT t.*, u.display_name as claimed_by_name
+  FROM trips t
+  LEFT JOIN users u ON t.claimed_by_user_id = u.id
+  WHERE t.trip_date >= ? AND t.trip_date <= ? AND t.merged_into IS NULL
+    AND t.is_business = 1 AND t.claimed_by_user_id IS NOT NULL
+  ORDER BY t.claimed_by_user_id ASC, t.trip_date ASC, t.start_time ASC
 `);
 
-const getAllTripsForDateRange = db.prepare(`
-  SELECT * FROM trips
-  WHERE trip_date >= ? AND trip_date <= ? AND merged_into IS NULL
-  ORDER BY registration ASC, trip_date ASC, start_time ASC
-`);
 
 const getSparesForTrip = db.prepare(`
   SELECT * FROM trip_spares WHERE trip_id = ? ORDER BY created_at ASC
@@ -162,51 +160,49 @@ export function generateWeeklyReportHtml(overrideFrom, overrideTo) {
     toDate = lastSunday.toISOString().slice(0, 10);
   }
 
-  const businessTrips = getBusinessTripsForDateRange.all(fromDate, toDate);
-  const allTrips = getAllTripsForDateRange.all(fromDate, toDate);
+  const businessTrips = getClaimedBusinessTrips.all(fromDate, toDate);
   const locations = getAllLocations.all();
 
   if (businessTrips.length === 0) {
     return { html: null, from: fromDate, to: toDate, totalTrips: 0 };
   }
 
-  // Group ALL trips by vehicle+date for labour calculation
-  const allByVehicleDate = {};
-  for (const t of allTrips) {
-    const key = `${t.registration}|${t.trip_date}`;
-    if (!allByVehicleDate[key]) allByVehicleDate[key] = [];
-    allByVehicleDate[key].push(t);
-  }
-
-  // Group business trips by vehicle
-  const byVehicle = {};
+  // Group claimed business trips by claiming user
+  // (already sorted by claimed_by_user_id, trip_date, start_time from the query)
+  const byUser = {};
   for (const t of businessTrips) {
-    if (!byVehicle[t.registration]) byVehicle[t.registration] = [];
-    byVehicle[t.registration].push(t);
+    const key = t.claimed_by_user_id;
+    if (!byUser[key]) byUser[key] = [];
+    byUser[key].push(t);
   }
 
   // Build per-driver sections
-  const driverSections = Object.entries(byVehicle).map(([reg, trips]) => {
-    const vehicle = getVehicle.get(reg);
-    const driverName = vehicle ? vehicle.description : reg;
+  const driverSections = Object.entries(byUser).map(([userId, trips]) => {
+    const driverName = trips[0].claimed_by_name || `User ${userId}`;
 
     const jobEntries = trips.map((trip, idx) => {
       const linkedCustomer = getLinkedCustomerName.get(trip.id);
       const locationName = findLocationName(trip.end_lat, trip.end_lng, locations);
-      const customer = linkedCustomer?.name || locationName || cleanAddress(trip.end_address);
+      const customer = trip.customer_name || linkedCustomer?.name || locationName || cleanAddress(trip.end_address);
       const traveltime = formatDuration(trip.duration_minutes);
       const km = trip.distance_km ? `${trip.distance_km.toFixed(1)} km` : '0 km';
 
-      const dayTrips = allByVehicleDate[`${reg}|${trip.trip_date}`] || [];
-      const tripIdx = dayTrips.findIndex(t => t.id === trip.id);
+      // Labour calculation:
+      //  - Merged trip (there-and-back): driver was on-site during the gaps between
+      //    sub-trips. Labour = wall-clock span − total driving time.
+      //  - Single/one-way trip: driver is still at the site after the trip ends.
+      //    Labour = gap to the next business trip for the same user on the same day
+      //    (the next trip starts when they leave the site for the next customer).
       let labour = '-';
-      if (tripIdx >= 0 && tripIdx < dayTrips.length - 1) {
-        const nextTrip = dayTrips[tripIdx + 1];
-        const endMs = new Date(trip.end_time).getTime();
-        const nextStartMs = new Date(nextTrip.start_time).getTime();
-        const gapMinutes = (nextStartMs - endMs) / 60000;
-        if (gapMinutes > 0 && gapMinutes < 480) {
-          labour = formatDuration(gapMinutes);
+      if (trip.merge_snapshot) {
+        const wallClock = (new Date(trip.end_time) - new Date(trip.start_time)) / 60000;
+        const onSite = Math.round(wallClock - (trip.duration_minutes || 0));
+        if (onSite > 0) labour = formatDuration(onSite);
+      } else {
+        const nextTrip = trips[idx + 1];
+        if (nextTrip && nextTrip.trip_date === trip.trip_date) {
+          const gapMinutes = (new Date(nextTrip.start_time) - new Date(trip.end_time)) / 60000;
+          if (gapMinutes > 0 && gapMinutes < 480) labour = formatDuration(gapMinutes);
         }
       }
 

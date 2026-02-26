@@ -56,6 +56,14 @@ if (!tripsColumns.find(c => c.name === 'customer_name')) {
   db.exec(`ALTER TABLE trips ADD COLUMN customer_name TEXT DEFAULT ''`);
 }
 
+// Migration: add claimed_by_user_id and claimed_at columns if missing
+if (!tripsColumns.find(c => c.name === 'claimed_by_user_id')) {
+  db.exec(`ALTER TABLE trips ADD COLUMN claimed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+}
+if (!tripsColumns.find(c => c.name === 'claimed_at')) {
+  db.exec(`ALTER TABLE trips ADD COLUMN claimed_at TEXT`);
+}
+
 // Vehicles table
 db.exec(`
   CREATE TABLE IF NOT EXISTS vehicles (

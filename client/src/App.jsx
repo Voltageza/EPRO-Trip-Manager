@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { fetchTrips, fetchVehiclesApi, syncVehiclesApi, fetchLocationsApi } from './api/tripsApi.js';
+import { fetchTrips, fetchUnclaimedTrips, claimTrip, unclaimTrip, fetchVehiclesApi, syncVehiclesApi, fetchLocationsApi } from './api/tripsApi.js';
 import { useAuth } from './context/AuthContext.jsx';
 import TripDayGroup from './components/TripDayGroup.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -35,7 +35,8 @@ export default function App() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [view, setView] = useState('trips'); // 'trips' | 'reports'
+  const [view, setView] = useState('trips'); // 'trips' | 'unclaimed' | 'reports'
+  const [unclaimedTrips, setUnclaimedTrips] = useState([]);
 
   // Load locations on mount
   useEffect(() => {
@@ -109,9 +110,35 @@ export default function App() {
     }
   }, []);
 
+  const loadUnclaimedTrips = useCallback(async (targetDate) => {
+    try {
+      const data = await fetchUnclaimedTrips(targetDate, targetDate);
+      setUnclaimedTrips(data);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     loadTrips(date);
-  }, [date, loadTrips]);
+    loadUnclaimedTrips(date);
+  }, [date, loadTrips, loadUnclaimedTrips]);
+
+  async function handleClaim(tripId) {
+    try {
+      await claimTrip(tripId);
+      await Promise.all([loadTrips(date), loadUnclaimedTrips(date)]);
+    } catch (err) {
+      setStatus({ message: `Failed to claim trip: ${err.message}`, type: 'error' });
+    }
+  }
+
+  async function handleRelease(tripId) {
+    try {
+      await unclaimTrip(tripId);
+      await Promise.all([loadTrips(date), loadUnclaimedTrips(date)]);
+    } catch (err) {
+      setStatus({ message: `Failed to release trip: ${err.message}`, type: 'error' });
+    }
+  }
 
   function handleDateChange(newDate) {
     setDate(newDate);
@@ -128,6 +155,7 @@ export default function App() {
       }
       setStatus({ message: msg, type: result.errors ? 'warning' : 'success' });
       loadTrips(date);
+      loadUnclaimedTrips(date);
     }
   }
 
@@ -135,33 +163,35 @@ export default function App() {
     setTrips(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
   }
 
-  // Filter trips to only selected vehicles
-  const selectedSet = new Set(selectedVehicles);
-  const visibleTrips = trips.filter(t => selectedSet.has(t.registration));
-
   // Build registration -> display name lookup
   const vehicleNames = {};
   for (const v of vehicles) {
     vehicleNames[v.registration] = v.description || v.registration;
   }
 
-  // Determine if multiple vehicles have trips on this day
-  const vehicleRegsInTrips = new Set(visibleTrips.map(t => t.registration));
-  const multiVehicleDay = vehicleRegsInTrips.size > 1;
+  // My trips (claimed) — no vehicle filter needed, server returns only mine
+  const myTrips = trips;
+  const totalKm = myTrips.reduce((s, t) => s + (t.distance_km || 0), 0);
+  const businessCount = myTrips.filter(t => t.is_business !== 0).length;
+  const privateCount = myTrips.length - businessCount;
 
-  // KPI computations
-  const totalKm = visibleTrips.reduce((s, t) => s + (t.distance_km || 0), 0);
-  const businessCount = visibleTrips.filter(t => t.is_business !== 0).length;
-  const privateCount = visibleTrips.length - businessCount;
-
-  // Group trips by date
+  // Group my trips by date
   const grouped = {};
-  for (const trip of visibleTrips) {
+  for (const trip of myTrips) {
     const key = trip.trip_date || date;
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(trip);
   }
   const sortedDates = Object.keys(grouped).sort();
+
+  // Group unclaimed trips by date
+  const groupedUnclaimed = {};
+  for (const trip of unclaimedTrips) {
+    const key = trip.trip_date || date;
+    if (!groupedUnclaimed[key]) groupedUnclaimed[key] = [];
+    groupedUnclaimed[key].push(trip);
+  }
+  const sortedUnclaimedDates = Object.keys(groupedUnclaimed).sort();
 
   return (
     <div className="dashboard">
@@ -169,7 +199,8 @@ export default function App() {
         date={date}
         onDateChange={handleDateChange}
         onSynced={handleSyncResult}
-        trips={visibleTrips}
+        trips={myTrips}
+        unclaimedCount={unclaimedTrips.length}
         open={sidebarOpen}
         onToggle={() => setSidebarOpen(o => !o)}
         vehicles={vehicles}
@@ -183,12 +214,42 @@ export default function App() {
       <main className="main-content">
         {view === 'reports' ? (
           <ReportView />
+        ) : view === 'unclaimed' ? (
+          <>
+            <div className="kpi-row">
+              <div className="kpi-card">
+                <div className="kpi-label">Unclaimed</div>
+                <div className="kpi-value">{unclaimedTrips.length}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-label">Distance</div>
+                <div className="kpi-value km">{unclaimedTrips.reduce((s, t) => s + (t.distance_km || 0), 0).toFixed(1)} km</div>
+              </div>
+            </div>
+            {unclaimedTrips.length === 0 && (
+              <div className="empty">No unclaimed trips for this date.</div>
+            )}
+            {sortedUnclaimedDates.map(d => (
+              <TripDayGroup
+                key={d}
+                date={d}
+                trips={groupedUnclaimed[d]}
+                onTripUpdate={() => {}}
+                onTripsReload={() => loadUnclaimedTrips(date)}
+                vehicleNames={vehicleNames}
+                locations={locations}
+                onLocationAdded={refreshLocations}
+                claimable={true}
+                onTripClaim={handleClaim}
+              />
+            ))}
+          </>
         ) : (
           <>
             <div className="kpi-row">
               <div className="kpi-card">
-                <div className="kpi-label">Trips</div>
-                <div className="kpi-value">{visibleTrips.length}</div>
+                <div className="kpi-label">My Trips</div>
+                <div className="kpi-value">{myTrips.length}</div>
               </div>
               <div className="kpi-card">
                 <div className="kpi-label">Distance</div>
@@ -211,7 +272,7 @@ export default function App() {
               </div>
             )}
             {!loading && sortedDates.length === 0 && !status.message && (
-              <div className="empty">No trips for this date.</div>
+              <div className="empty">No trips claimed for this date. Visit Unallocated to claim trips.</div>
             )}
             {sortedDates.map(d => (
               <TripDayGroup
@@ -219,11 +280,11 @@ export default function App() {
                 date={d}
                 trips={grouped[d]}
                 onTripUpdate={handleTripUpdate}
-                onTripsReload={() => loadTrips(date)}
-                multiVehicleDay={multiVehicleDay}
+                onTripsReload={() => { loadTrips(date); loadUnclaimedTrips(date); }}
                 vehicleNames={vehicleNames}
                 locations={locations}
                 onLocationAdded={refreshLocations}
+                onTripRelease={handleRelease}
               />
             ))}
           </>

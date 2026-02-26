@@ -9,7 +9,7 @@ router.post('/', async (req, res) => {
     const from = req.body.from || yesterday();
     const to = req.body.to || from;
     const registrations = req.body.registrations || null;
-    const result = await syncTrips(from, to, registrations);
+    const result = await syncTrips(from, to, registrations, req.user.id);
     console.log(`[sync] Synced ${result.synced} trips (${result.vehicles} vehicles) for ${from} to ${to}`);
     res.json(result);
   } catch (err) {
