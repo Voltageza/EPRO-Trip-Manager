@@ -49,7 +49,7 @@ const getLinkedJob = db.prepare(`
 `);
 
 const getAbsorbedEndpoint = db.prepare(
-  'SELECT end_address, end_lat, end_lng FROM trips WHERE id = ?'
+  'SELECT end_address, end_lat, end_lng, distance_km, duration_minutes FROM trips WHERE id = ?'
 );
 
 function withExtras(trip) {
@@ -68,13 +68,21 @@ function withExtras(trip) {
           address: snapshot.original.end_address,
           lat: snapshot.original.end_lat ?? null,
           lng: snapshot.original.end_lng ?? null,
+          distance_km: snapshot.original.distance_km ?? null,
+          duration_minutes: snapshot.original.duration_minutes ?? null,
         });
       }
       // Additional stops: each absorbed trip's end EXCEPT the last
       // (last absorbed trip's end == merged trip's current end_address, already shown)
       for (let i = 0; i < absorbedIds.length - 1; i++) {
         const abs = getAbsorbedEndpoint.get(absorbedIds[i]);
-        if (abs) stops.push({ address: abs.end_address, lat: abs.end_lat ?? null, lng: abs.end_lng ?? null });
+        if (abs) stops.push({
+          address: abs.end_address,
+          lat: abs.end_lat ?? null,
+          lng: abs.end_lng ?? null,
+          distance_km: abs.distance_km ?? null,
+          duration_minutes: abs.duration_minutes ?? null,
+        });
       }
     } catch { /* ignore */ }
   }

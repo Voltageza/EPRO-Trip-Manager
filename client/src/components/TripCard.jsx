@@ -270,11 +270,6 @@ export default function TripCard({
           {!claimable && <span className="drag-handle" title="Drag to merge">&#x2630;</span>}
           <span className={`trip-filled-dot ${isFilled ? 'filled' : 'unfilled'}`} />
           <span className="trip-time">{startTime} — {endTime}</span>
-          {!claimable && (customerName || trip.linked_job?.customer_name) && (
-            <span className={`trip-header-customer ${trip.is_business ? 'business' : 'private'}`}>
-              {customerName || trip.linked_job.customer_name}
-            </span>
-          )}
           <div className="trip-badges">
             {showVehicleBadge && (
               <span className="vehicle-badge">{vehicleNames[trip.registration] || trip.registration}</span>
@@ -289,6 +284,11 @@ export default function TripCard({
               <span className="merged-badge">{trip.merged_from.length + 1} trips merged</span>
             )}
           </div>
+          {!claimable && (customerName || trip.linked_job?.customer_name) && (
+            <span className={`trip-header-customer ${trip.is_business ? 'business' : 'private'}`}>
+              {customerName || trip.linked_job.customer_name}
+            </span>
+          )}
         </div>
         <div className="trip-card-right">
           {claimable ? (
@@ -402,6 +402,13 @@ export default function TripCard({
                         title="Open in Google Maps"
                         onClick={e => e.stopPropagation()}
                       >&#x1F4CD;</a>
+                    )}
+                    {(stop.distance_km != null || stop.duration_minutes != null) && (
+                      <span className="stop-leg-stats">
+                        {stop.distance_km != null && `${stop.distance_km.toFixed(1)} km`}
+                        {stop.distance_km != null && stop.duration_minutes != null && ' · '}
+                        {stop.duration_minutes != null && `${Math.round(stop.duration_minutes)} min`}
+                      </span>
                     )}
                   </div>
                 );
