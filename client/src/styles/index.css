@@ -189,9 +189,36 @@ body {
 /* ====== KPI CARDS ====== */
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, 1fr) auto;
   gap: 0.875rem;
   margin-bottom: 2rem;
+  align-items: center;
+}
+
+.add-trip-btn {
+  padding: 0.55rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+  align-self: center;
+}
+
+.add-trip-btn:hover {
+  opacity: 0.85;
+
+}
+
+@media (max-width: 768px) {
+  .add-trip-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
 }
 
 .kpi-card {
@@ -674,6 +701,11 @@ body {
   line-height: 1;
 }
 
+.trip-card.expanded {
+  position: relative;
+  z-index: 5;
+}
+
 .trip-card.expanded .trip-expand-icon {
   transform: rotate(180deg);
 }
@@ -730,7 +762,7 @@ body {
 }
 
 .trip-card.expanded .trip-card-body {
-  max-height: 600px;
+  max-height: 2000px;
   opacity: 1;
 }
 
@@ -1718,7 +1750,7 @@ body {
   }
 
   .kpi-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr) auto;
     gap: 0.625rem;
   }
 }
@@ -1730,7 +1762,7 @@ body {
   }
 
   .kpi-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr) auto;
   }
 
   .trip-card-header {
@@ -2292,10 +2324,6 @@ body {
 }
 
 .job-link-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 50;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2527,7 +2555,41 @@ body {
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--text);
+  margin-bottom: 1rem;
+}
+
+.report-type-toggle {
+  display: flex;
+  gap: 0;
   margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.report-type-btn {
+  padding: 0.4rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.report-type-btn + .report-type-btn {
+  border-left: 1px solid var(--border);
+}
+
+.report-type-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.report-type-btn:hover:not(.active) {
+  background: var(--surface-hover, var(--border));
 }
 
 .report-controls {
@@ -2667,4 +2729,355 @@ body {
   display: flex;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+/* ====== ADD TRIP MODAL ====== */
+.atm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.atm-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.atm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.atm-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.atm-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.atm-close:hover {
+  color: var(--text);
+}
+
+.atm-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.atm-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+}
+
+.atm-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.atm-input {
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.atm-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.atm-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 0.1rem;
+}
+
+.atm-toggle-btn {
+  flex: 1;
+  padding: 0.45rem 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.atm-toggle-btn + .atm-toggle-btn {
+  border-left: 1px solid var(--border);
+}
+
+.atm-toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.atm-toggle-btn.active.private {
+  background: var(--private, #8b5cf6);
+}
+
+.atm-error {
+  font-size: 0.85rem;
+  color: var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+
+.atm-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}
+
+.atm-btn-cancel {
+  padding: 0.55rem 1.1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.atm-btn-cancel:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.atm-btn-save {
+  padding: 0.55rem 1.4rem;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.atm-btn-save:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.atm-btn-save:disabled,
+.atm-btn-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Address autocomplete wrapper */
+.atm-ac-wrap {
+  position: relative;
+}
+
+.atm-ac-input-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.atm-ac-input-row .atm-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 2rem;
+}
+
+.atm-pinned {
+  position: absolute;
+  right: 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #22c55e;
+  pointer-events: none;
+}
+
+.atm-searching {
+  position: absolute;
+  right: 0.6rem;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: atm-spin 0.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes atm-spin {
+  to { transform: rotate(360deg); }
+}
+
+.atm-suggestions {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  z-index: 1100;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.atm-suggestion {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light);
+  line-height: 1.3;
+}
+
+.atm-suggestion:last-child {
+  border-bottom: none;
+}
+
+.atm-suggestion:hover {
+  background: var(--surface-hover, var(--border));
+}
+
+/* Map wrapper — positions the hint overlay */
+.atm-map-wrap {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+/* Map container — always visible */
+.atm-map.always-visible {
+  width: 100%;
+  height: 240px;
+}
+
+/* Instruction hint overlaid on the map */
+.atm-map-hint {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.62);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.85rem;
+  border-radius: 20px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 800;
+}
+
+/* Mode / action buttons row */
+.atm-mode-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.atm-mode-btn {
+  flex: 1;
+  padding: 0.42rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.atm-mode-btn.start.active {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: rgba(59,130,246,0.08);
+}
+
+.atm-mode-btn.end.active {
+  border-color: #22c55e;
+  color: #22c55e;
+  background: rgba(34,197,94,0.08);
+}
+
+.atm-mode-btn.placed {
+  opacity: 0.7;
+}
+
+.atm-mode-btn.clear {
+  flex: 0 0 auto;
+  color: var(--danger, #ef4444);
+  border-color: transparent;
+}
+
+/* Route info strip */
+.atm-route-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.atm-route-chip {
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 20px;
+  padding: 0.2rem 0.7rem;
+}
+
+.atm-route-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }

@@ -106,6 +106,66 @@ function defaultDateRange(req) {
   return { from, to };
 }
 
+// POST /api/trips — create a manual trip (auto-claimed by current user)
+router.post('/', (req, res) => {
+  try {
+    const {
+      registration, trip_date, start_time, end_time,
+      start_address, end_address,
+      start_lat, start_lng, end_lat, end_lng,
+      distance_km, duration_minutes: clientDuration,
+      user_description, is_business,
+    } = req.body;
+    if (!registration || !trip_date || !start_time || !end_time) {
+      return res.status(400).json({ error: 'registration, trip_date, start_time, end_time are required' });
+    }
+
+    const startIso = `${trip_date}T${start_time}:00`;
+    const endIso = `${trip_date}T${end_time}:00`;
+    const calculatedDuration = (new Date(endIso) - new Date(startIso)) / 60000;
+    const durationMinutes = (clientDuration != null && clientDuration !== '') ? Number(clientDuration) : (calculatedDuration > 0 ? calculatedDuration : null);
+    const now = new Date().toISOString();
+
+    const result = db.prepare(`
+      INSERT INTO trips (
+        registration, trip_date, start_time, end_time,
+        start_address, end_address,
+        start_lat, start_lng, end_lat, end_lng,
+        distance_km, duration_minutes,
+        user_description, is_business,
+        claimed_by_user_id, claimed_at, synced_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      registration,
+      trip_date,
+      startIso,
+      endIso,
+      start_address || null,
+      end_address || null,
+      start_lat != null ? Number(start_lat) : null,
+      start_lng != null ? Number(start_lng) : null,
+      end_lat != null ? Number(end_lat) : null,
+      end_lng != null ? Number(end_lng) : null,
+      distance_km != null && distance_km !== '' ? Number(distance_km) : null,
+      durationMinutes,
+      user_description || null,
+      is_business != null ? (is_business ? 1 : 0) : 1,
+      req.user.id,
+      now,
+      now,
+      now
+    );
+
+    const trip = getTrip.get(result.lastInsertRowid);
+    res.status(201).json(withExtras(trip));
+  } catch (err) {
+    if (err.message?.includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'A trip for this vehicle at this start time already exists.' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/trips?from=YYYY-MM-DD&to=YYYY-MM-DD — trips claimed by current user
 router.get('/', (req, res) => {
   const { from, to } = defaultDateRange(req);

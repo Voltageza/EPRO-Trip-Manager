@@ -368,6 +368,14 @@ router.post('/:id/link-trip', (req, res) => {
       WHERE j.id = ?
     `).get(req.params.id);
 
+    // Auto-populate trip description from job details if currently empty
+    if (!trip.user_description) {
+      const parts = [updated.customer_name, job.description].filter(Boolean);
+      const autoDesc = `${job.reference_number}: ${parts.join(' — ')}`;
+      db.prepare('UPDATE trips SET user_description = ?, updated_at = ? WHERE id = ?')
+        .run(autoDesc, now, trip_id);
+    }
+
     // Fetch linked trips
     const linkedTrips = db.prepare(`
       SELECT t.id, t.trip_date, t.start_time, t.end_time,

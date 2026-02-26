@@ -5,6 +5,7 @@ import TripDayGroup from './components/TripDayGroup.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import ReportView from './components/ReportView.jsx';
+import AddTripModal from './components/AddTripModal.jsx';
 
 const STORAGE_KEY = 'epro-selected-vehicles';
 
@@ -37,6 +38,7 @@ export default function App() {
   const [locations, setLocations] = useState([]);
   const [view, setView] = useState('trips'); // 'trips' | 'unclaimed' | 'reports'
   const [unclaimedTrips, setUnclaimedTrips] = useState([]);
+  const [showAddTrip, setShowAddTrip] = useState(false);
 
   // Load locations on mount
   useEffect(() => {
@@ -138,6 +140,11 @@ export default function App() {
     } catch (err) {
       setStatus({ message: `Failed to release trip: ${err.message}`, type: 'error' });
     }
+  }
+
+  function handleTripAdded(newTrip) {
+    setShowAddTrip(false);
+    loadTrips(date);
   }
 
   function handleDateChange(newDate) {
@@ -263,6 +270,9 @@ export default function App() {
                 <div className="kpi-label">Private</div>
                 <div className="kpi-value private">{privateCount}</div>
               </div>
+              <button className="add-trip-btn" onClick={() => setShowAddTrip(true)} title="Add a manual trip">
+                + Add Trip
+              </button>
             </div>
 
             {loading && (
@@ -292,6 +302,15 @@ export default function App() {
       </main>
 
       <StatusBar message={status.message} type={status.type} />
+
+      {showAddTrip && (
+        <AddTripModal
+          vehicles={vehicles}
+          defaultDate={date}
+          onCreated={handleTripAdded}
+          onClose={() => setShowAddTrip(false)}
+        />
+      )}
     </div>
   );
 }

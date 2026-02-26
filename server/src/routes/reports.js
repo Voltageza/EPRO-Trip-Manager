@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
-import { sendWeeklyReport, generateWeeklyReportHtml } from '../services/emailService.js';
+import { sendWeeklyReport, generateWeeklyReportHtml, generatePrivateReportHtml, sendPrivateReport } from '../services/emailService.js';
 
 const router = Router();
 
@@ -81,6 +81,30 @@ router.post('/send-weekly', requireAdmin, async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[reports] Manual weekly report failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/reports/preview-private — generate private trip report HTML without sending
+// Body: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" }
+router.post('/preview-private', (req, res) => {
+  try {
+    const result = generatePrivateReportHtml(req.body.from, req.body.to);
+    res.json(result);
+  } catch (err) {
+    console.error('[reports] Preview private report failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/reports/send-private — send private trip report email
+// Body: { from: "YYYY-MM-DD", to: "YYYY-MM-DD", html?: "custom HTML" }
+router.post('/send-private', requireAdmin, async (req, res) => {
+  try {
+    const result = await sendPrivateReport(req.body.from, req.body.to, req.body.html);
+    res.json(result);
+  } catch (err) {
+    console.error('[reports] Manual private report failed:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

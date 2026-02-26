@@ -104,6 +104,19 @@ export async function fetchTrips(from, to) {
   return res.json();
 }
 
+export async function createManualTrip(tripData) {
+  const res = await authFetch(`${BASE}/trips`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(tripData),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to create trip');
+  }
+  return res.json();
+}
+
 export async function fetchUnclaimedTrips(from, to) {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
@@ -305,6 +318,32 @@ export async function previewWeeklyReport(from, to) {
 
 export async function sendWeeklyReportApi(from, to, html) {
   const res = await authFetch(`${BASE}/reports/send-weekly`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to, html }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to send report');
+  }
+  return res.json();
+}
+
+export async function previewPrivateReport(from, to) {
+  const res = await authFetch(`${BASE}/reports/preview-private`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to generate preview');
+  }
+  return res.json();
+}
+
+export async function sendPrivateReportApi(from, to, html) {
+  const res = await authFetch(`${BASE}/reports/send-private`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ from, to, html }),

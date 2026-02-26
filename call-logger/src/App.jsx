@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useAuth } from './context/AuthContext.jsx';
 import JobList from './components/JobList.jsx';
 import JobForm from './components/JobForm.jsx';
@@ -12,6 +12,17 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
+
+  // Auto-refresh job list every 30s and when the tab regains focus
+  useEffect(() => {
+    const interval = setInterval(refresh, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refresh]);
 
   const handleSelectJob = (job) => {
     setSelectedJobId(job.id);
