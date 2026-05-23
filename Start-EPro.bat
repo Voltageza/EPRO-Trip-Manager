@@ -50,7 +50,8 @@ echo.
 
 :: ── 3. Start Node dev servers in a new window ────────────────────────────────
 echo [3/3] Starting Trip Manager + Call Logger dev servers...
-start "E-Pro Dev Servers" /D "%~dp0" cmd /k "npm run dev"
+cd /d "%~dp0"
+start "E-Pro Dev Servers" cmd /k "npm run dev"
 echo     Server  : http://localhost:3001
 echo     Client  : http://localhost:5173
 echo     Calls   : http://localhost:5174/call-logger/
