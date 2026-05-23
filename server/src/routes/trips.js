@@ -49,7 +49,7 @@ const getLinkedJob = db.prepare(`
 `);
 
 const getAbsorbedEndpoint = db.prepare(
-  'SELECT end_address, end_lat, end_lng, distance_km, duration_minutes FROM trips WHERE id = ?'
+  'SELECT end_address, end_lat, end_lng, distance_km, duration_minutes, customer_name FROM trips WHERE id = ?'
 );
 
 function withExtras(trip) {
@@ -70,6 +70,7 @@ function withExtras(trip) {
           lng: snapshot.original.end_lng ?? null,
           distance_km: snapshot.original.distance_km ?? null,
           duration_minutes: snapshot.original.duration_minutes ?? null,
+          customer_name: snapshot.original.customer_name ?? null,
         });
       }
       // Additional stops: each absorbed trip's end EXCEPT the last
@@ -81,6 +82,7 @@ function withExtras(trip) {
           lat: abs.end_lat ?? null,
           lng: abs.end_lng ?? null,
           distance_km: abs.distance_km ?? null,
+          customer_name: abs.customer_name ?? null,
           duration_minutes: abs.duration_minutes ?? null,
         });
       }
@@ -341,6 +343,7 @@ router.post('/merge', (req, res) => {
           idle_time_minutes: primary.idle_time_minutes,
           user_description: primary.user_description,
           is_business: primary.is_business,
+          customer_name: primary.customer_name ?? null,
         },
         absorbed_ids: absorbed.map(t => t.id),
         spare_source_map: {},
@@ -368,6 +371,17 @@ router.post('/merge', (req, res) => {
       const mergedDesc = descriptions.join(' | ');
 
       // Update primary with merged values
+      // Also patch raw_json.end_geofence_name to reflect the new endpoint
+      let updatedRawJson = null;
+      if (primary.raw_json) {
+        try {
+          const raw = JSON.parse(primary.raw_json);
+          const lastRaw = last.raw_json ? JSON.parse(last.raw_json) : {};
+          raw.end_geofence_name = lastRaw.end_geofence_name || '';
+          updatedRawJson = JSON.stringify(raw);
+        } catch { /* leave raw_json unchanged */ }
+      }
+
       const now = new Date().toISOString();
       db.prepare(`
         UPDATE trips SET
@@ -375,14 +389,18 @@ router.post('/merge', (req, res) => {
           end_address = ?, end_lat = ?, end_lng = ?,
           max_speed = ?, idle_time_minutes = ?,
           is_business = ?, user_description = ?,
-          merge_snapshot = ?, updated_at = ?
+          merge_snapshot = ?,
+          raw_json = COALESCE(?, raw_json),
+          updated_at = ?
         WHERE id = ?
       `).run(
         totalDistance, totalDuration, last.end_time,
         last.end_address, last.end_lat, last.end_lng,
         maxSpeed, totalIdle,
         isBusiness, mergedDesc,
-        JSON.stringify(snapshot), now,
+        JSON.stringify(snapshot),
+        updatedRawJson,
+        now,
         primary.id
       );
 
@@ -397,10 +415,7 @@ router.post('/merge', (req, res) => {
       }
 
       // Return updated primary
-      const updated = getTrip.get(primary.id);
-      updated.spares = getSparesByTrip.all(updated.id);
-      updated.merged_from = absorbed.map(t => t.id);
-      return updated;
+      return withExtras(getTrip.get(primary.id));
     })();
 
     res.json(result);
@@ -460,12 +475,7 @@ router.post('/:id/unmerge', (req, res) => {
 
       // Return all separated trips
       const allIds = [trip.id, ...snapshot.absorbed_ids];
-      return allIds.map(id => {
-        const t = getTrip.get(id);
-        t.spares = getSparesByTrip.all(t.id);
-        t.merged_from = [];
-        return t;
-      });
+      return allIds.map(id => withExtras(getTrip.get(id)));
     })();
 
     res.json(result);

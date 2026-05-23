@@ -29,6 +29,7 @@ export default function JobCard({ job, onClick }) {
           <div className="job-customer-name">
             {job.customer_name}
             {job.customer_phone && <span className="job-customer-phone"> &middot; {job.customer_phone}</span>}
+            {job.customer_address && <span className="job-customer-address"> &middot; {job.customer_address}</span>}
           </div>
         )}
         <div className="job-badges">

@@ -434,6 +434,37 @@ router.get('/:id/linked-trips', (req, res) => {
   }
 });
 
+// POST /api/jobs/:id/resend-webhook — manually re-fire n8n webhook for a job
+router.post('/:id/resend-webhook', async (req, res) => {
+  try {
+    const job = db.prepare(`
+      SELECT j.*,
+             c.name as customer_name, c.phone as customer_phone,
+             c.email as customer_email, c.address as customer_address
+      FROM jobs j
+      LEFT JOIN customers c ON j.customer_id = c.id
+      WHERE j.id = ?
+    `).get(req.params.id);
+
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    // Pick the most appropriate event for current job state
+    let event;
+    if (job.status === 'complete' || job.status === 'incomplete') {
+      event = 'job_completed';
+    } else if (job.assigned_to) {
+      event = 'job_assigned';
+    } else {
+      event = 'job_created';
+    }
+
+    await fireWebhook(event, job);
+    res.json({ ok: true, event, reference_number: job.reference_number });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Multer error handler
 router.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {

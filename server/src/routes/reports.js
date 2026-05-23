@@ -61,6 +61,18 @@ router.get('/', (req, res) => {
   res.json({ exists: true, ...report });
 });
 
+// GET /api/reports/month?year=YYYY&month=MM — submitted dates for a calendar month
+router.get('/month', (req, res) => {
+  const { year, month } = req.query;
+  if (!year || !month) return res.status(400).json({ error: 'year and month required' });
+  const from = `${year}-${String(month).padStart(2, '0')}-01`;
+  const to = `${year}-${String(month).padStart(2, '0')}-31`;
+  const rows = db.prepare(
+    `SELECT report_date FROM daily_reports WHERE report_date >= ? AND report_date <= ? ORDER BY report_date`
+  ).all(from, to);
+  res.json(rows.map(r => r.report_date));
+});
+
 // POST /api/reports/preview-weekly — generate report HTML without sending
 // Body: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" }
 router.post('/preview-weekly', (req, res) => {

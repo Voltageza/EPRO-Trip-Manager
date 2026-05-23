@@ -235,6 +235,12 @@ export async function getDailyReport(date) {
   return res.json();
 }
 
+export async function fetchMonthReports(year, month) {
+  const res = await authFetch(`${BASE}/reports/month?year=${year}&month=${month}`);
+  if (!res.ok) throw new Error(`Failed to fetch month reports: ${res.status}`);
+  return res.json();
+}
+
 export async function mergeTrips(tripIds) {
   const res = await authFetch(`${BASE}/trips/merge`, {
     method: 'POST',

@@ -391,6 +391,7 @@ export default function TripCard({
                 return (
                   <div key={i} className="trip-address route-stop-addr">
                     <span className="route-stop-label">Stop {i + 1}</span>
+                    {stop.customer_name && <span className="stop-customer-name">{stop.customer_name}</span>}
                     {stopAddr}
                     {savedStopLoc && <span className="geo-name">{savedStopLoc.name}</span>}
                     {!savedStopLoc && stop.lat != null && (

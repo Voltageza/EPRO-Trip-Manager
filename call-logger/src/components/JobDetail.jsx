@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchJob, updateJob, deleteJob, uploadPhotos, deletePhoto, fetchElectricians, fetchLinkedTrips } from '../api/api.js';
+import { fetchJob, updateJob, deleteJob, uploadPhotos, deletePhoto, fetchElectricians, fetchLinkedTrips, resendWebhook } from '../api/api.js';
 
 const STATUS_OPTIONS = [
   { value: 'unassigned', label: 'Unassigned' },
@@ -133,6 +133,15 @@ export default function JobDetail({ jobId, onBack, onUpdated }) {
     }
   };
 
+  const handleResendWebhook = async () => {
+    try {
+      const result = await resendWebhook(jobId);
+      showToast(`Resent to n8n (${result.event})`);
+    } catch (err) {
+      alert('Failed to resend: ' + err.message);
+    }
+  };
+
   const buildWhatsAppLink = () => {
     const elec = electricians.find(e => e.name === job.assigned_to);
     if (!elec?.phone) return null;
@@ -178,7 +187,12 @@ export default function JobDetail({ jobId, onBack, onUpdated }) {
 
       <div className="job-detail-nav">
         <button className="btn-text" onClick={onBack}>&larr; Back to list</button>
-        <button className="btn-danger-text" onClick={handleDeleteJob}>Delete Job</button>
+        <div className="job-detail-nav-actions">
+          <button className="btn-text" onClick={handleResendWebhook} title="Re-fire this job to n8n / MS To-Do">
+            &#x21BA; Resend to n8n
+          </button>
+          <button className="btn-danger-text" onClick={handleDeleteJob}>Delete Job</button>
+        </div>
       </div>
 
       <div className="job-detail-header">
@@ -198,9 +212,9 @@ export default function JobDetail({ jobId, onBack, onUpdated }) {
           <h3>Customer</h3>
           <div className="detail-customer">
             <strong>{job.customer_name}</strong>
-            {job.customer_phone && <div>Phone: {job.customer_phone}</div>}
-            {job.customer_email && <div>Email: {job.customer_email}</div>}
-            {job.customer_address && <div>Address: {job.customer_address}</div>}
+            {job.customer_phone && <span className="detail-customer-separator"> &middot; {job.customer_phone}</span>}
+            {job.customer_address && <span className="detail-customer-separator"> &middot; {job.customer_address}</span>}
+            {job.customer_email && <div className="detail-customer-email">Email: {job.customer_email}</div>}
           </div>
         </div>
       )}

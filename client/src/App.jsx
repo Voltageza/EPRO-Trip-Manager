@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import ReportView from './components/ReportView.jsx';
 import AddTripModal from './components/AddTripModal.jsx';
+import MonthCalendar from './components/MonthCalendar.jsx';
 
 const STORAGE_KEY = 'epro-selected-vehicles';
 
@@ -275,28 +276,35 @@ export default function App() {
               </button>
             </div>
 
-            {loading && (
-              <div className="loading">
-                <div className="spinner"></div>
-                <span>Loading trips...</span>
+            <div className="trips-with-calendar">
+              <div className="trips-column">
+                {loading && (
+                  <div className="loading">
+                    <div className="spinner"></div>
+                    <span>Loading trips...</span>
+                  </div>
+                )}
+                {!loading && sortedDates.length === 0 && !status.message && (
+                  <div className="empty">No trips claimed for this date. Visit Unallocated to claim trips.</div>
+                )}
+                {sortedDates.map(d => (
+                  <TripDayGroup
+                    key={d}
+                    date={d}
+                    trips={grouped[d]}
+                    onTripUpdate={handleTripUpdate}
+                    onTripsReload={() => { loadTrips(date); loadUnclaimedTrips(date); }}
+                    vehicleNames={vehicleNames}
+                    locations={locations}
+                    onLocationAdded={refreshLocations}
+                    onTripRelease={handleRelease}
+                  />
+                ))}
               </div>
-            )}
-            {!loading && sortedDates.length === 0 && !status.message && (
-              <div className="empty">No trips claimed for this date. Visit Unallocated to claim trips.</div>
-            )}
-            {sortedDates.map(d => (
-              <TripDayGroup
-                key={d}
-                date={d}
-                trips={grouped[d]}
-                onTripUpdate={handleTripUpdate}
-                onTripsReload={() => { loadTrips(date); loadUnclaimedTrips(date); }}
-                vehicleNames={vehicleNames}
-                locations={locations}
-                onLocationAdded={refreshLocations}
-                onTripRelease={handleRelease}
-              />
-            ))}
+              <div className="calendar-panel">
+                <MonthCalendar selectedDate={date} onDateSelect={handleDateChange} />
+              </div>
+            </div>
           </>
         )}
       </main>

@@ -131,6 +131,12 @@ export async function deleteJob(id) {
   return res.json();
 }
 
+export async function resendWebhook(id) {
+  const res = await authFetch(`${BASE}/jobs/${id}/resend-webhook`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to resend webhook');
+  return res.json();
+}
+
 export async function uploadPhotos(jobId, files) {
   const formData = new FormData();
   for (const file of files) formData.append('photos', file);
