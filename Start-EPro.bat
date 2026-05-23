@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title E-Pro Launcher
+title E-Pro Trip Manager
 color 1F
 
 echo ============================================
@@ -48,18 +48,14 @@ if %errorlevel% equ 0 (
 echo     n8n UI  : http://localhost:5678
 echo.
 
-:: ── 3. Start Node dev servers in a new window ────────────────────────────────
-echo [3/3] Starting Trip Manager + Call Logger dev servers...
-cd /d "%~dp0"
-start "E-Pro Dev Servers" cmd /k "npm run dev"
+:: ── 3. Start Node dev servers in THIS window ─────────────────────────────────
+echo [3/3] Starting dev servers (Ctrl+C to stop all)...
 echo     Server  : http://localhost:3001
 echo     Client  : http://localhost:5173
 echo     Calls   : http://localhost:5174/call-logger/
 echo.
-
-echo ============================================
-echo   All services launched. You can close
-echo   this window -- dev servers run separately.
 echo ============================================
 echo.
-pause
+
+cd /d "%~dp0"
+npm run dev
