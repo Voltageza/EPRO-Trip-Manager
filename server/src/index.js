@@ -30,7 +30,7 @@ const uploadsDir = resolve(__dirname, '../uploads');
 if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 
 // Static file serving for uploads
 app.use('/uploads', express.static(uploadsDir));

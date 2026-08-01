@@ -202,7 +202,7 @@ export default function TripDayGroup({ date, trips, onTripUpdate, onTripsReload,
             trip={trip}
             onUpdate={onTripUpdate}
             onTripsReload={onTripsReload}
-            showVehicleBadge={showVehicleBadge || claimable}
+            showVehicleBadge={true}
             vehicleNames={vehicleNames}
             locations={locations}
             onLocationAdded={onLocationAdded}

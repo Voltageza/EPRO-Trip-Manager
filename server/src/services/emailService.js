@@ -270,23 +270,21 @@ export function generateWeeklyReportHtml(overrideFrom, overrideTo) {
       const traveltime = formatDuration(trip.duration_minutes);
       const km = trip.distance_km ? `${trip.distance_km.toFixed(1)} km` : '0 km';
 
-      // Labour calculation:
-      //  - Merged trip (there-and-back): driver was on-site during the gaps between
-      //    sub-trips. Labour = wall-clock span − total driving time.
-      //  - Single/one-way trip: driver is still at the site after the trip ends.
-      //    Labour = gap to the next business trip for the same user on the same day
-      //    (the next trip starts when they leave the site for the next customer).
+      // Labour = time at customer site.
+      // Primary: gap from this trip's end_time to the next business trip's start_time
+      //   (works for all trips — the driver leaves the customer when the next trip starts).
+      // Fallback for the last trip of the day (no next trip) when merged: the driver
+      //   went to the customer then drove back, so labour = wall-clock − driving time
+      //   (the gap between the legs is the on-site time).
       let labour = '-';
-      if (trip.merge_snapshot) {
+      const nextTrip = trips[idx + 1];
+      if (nextTrip && nextTrip.trip_date === trip.trip_date) {
+        const gapMinutes = (new Date(nextTrip.start_time) - new Date(trip.end_time)) / 60000;
+        if (gapMinutes > 0 && gapMinutes < 480) labour = formatDuration(gapMinutes);
+      } else if (trip.merge_snapshot) {
         const wallClock = (new Date(trip.end_time) - new Date(trip.start_time)) / 60000;
         const onSite = Math.round(wallClock - (trip.duration_minutes || 0));
         if (onSite > 0) labour = formatDuration(onSite);
-      } else {
-        const nextTrip = trips[idx + 1];
-        if (nextTrip && nextTrip.trip_date === trip.trip_date) {
-          const gapMinutes = (new Date(nextTrip.start_time) - new Date(trip.end_time)) / 60000;
-          if (gapMinutes > 0 && gapMinutes < 480) labour = formatDuration(gapMinutes);
-        }
       }
 
       const dateStr = new Date(trip.trip_date + 'T00:00:00').toLocaleDateString('en-ZA', {
@@ -368,14 +366,24 @@ export function generateWeeklyReportHtml(overrideFrom, overrideTo) {
         ? `<tr><td style="padding:4px 0;font-weight:600;width:120px;vertical-align:top;">Job Ref:</td><td style="padding:4px 0;font-family:monospace;font-size:13px;">${escapeHtml(linkedJob.reference_number)}</td></tr>`
         : '';
 
+      const vehicleRow = (() => {
+        const v = getVehicle.get(trip.registration);
+        const label = v?.description || trip.registration || null;
+        return label
+          ? `<tr><td style="padding:4px 0;font-weight:600;width:120px;vertical-align:top;">Vehicle:</td><td style="padding:4px 0;">${escapeHtml(label)}</td></tr>`
+          : '';
+      })();
+
+      const traveltimeStr = timeStr !== '-' ? `${timeStr} &nbsp;·&nbsp; ${traveltime}` : traveltime;
+
       return `
         ${separator}
         <tr><td style="padding:4px 0;font-weight:600;width:120px;vertical-align:top;">Date:</td><td style="padding:4px 0;">${dateStr}</td></tr>
-        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Time:</td><td style="padding:4px 0;">${timeStr}</td></tr>
         ${jobRefRow}
+        ${vehicleRow}
         <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Customer:</td><td style="padding:4px 0;">${escapeHtml(customer)}</td></tr>
         <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Route:</td><td style="padding:4px 0;">${routeHtml}</td></tr>
-        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Traveltime:</td><td style="padding:4px 0;">${traveltime}</td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Traveltime:</td><td style="padding:4px 0;">${traveltimeStr}</td></tr>
         <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Kilometers:</td><td style="padding:4px 0;">${km}</td></tr>
         <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Labour:</td><td style="padding:4px 0;">${labour}</td></tr>
         <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Job Description:</td><td style="padding:4px 0;">${desc}</td></tr>
@@ -512,17 +520,27 @@ export function generatePrivateReportHtml(overrideFrom, overrideTo) {
         ? `<tr><td style="padding:4px 0;font-weight:600;width:120px;vertical-align:top;">Job Ref:</td><td style="padding:4px 0;font-family:monospace;font-size:13px;">${escapeHtml(linkedJobP.reference_number)}</td></tr>`
         : '';
 
+      const privateVehicleRow = (() => {
+        const v = getVehicle.get(trip.registration);
+        const label = v?.description || trip.registration || null;
+        return label
+          ? `<tr><td style="padding:4px 0;font-weight:600;width:120px;vertical-align:top;">Vehicle:</td><td style="padding:4px 0;">${escapeHtml(label)}</td></tr>`
+          : '';
+      })();
+
       const separator = idx > 0
         ? '<tr><td colspan="2" style="padding:8px 0;"><hr style="border:none;border-top:1px dashed #ccc;margin:0;"/></td></tr>'
         : '';
 
+      const privateTraveltimeStr = timeStr !== '-' ? `${timeStr} &nbsp;·&nbsp; ${traveltime}` : traveltime;
+
       return `
         ${separator}
         <tr><td style="padding:4px 0;font-weight:600;width:120px;vertical-align:top;">Date:</td><td style="padding:4px 0;">${dateStr}</td></tr>
-        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Time:</td><td style="padding:4px 0;">${timeStr}</td></tr>
         ${privateJobRefRow}
+        ${privateVehicleRow}
         <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Route:</td><td style="padding:4px 0;">${routeHtml}</td></tr>
-        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Traveltime:</td><td style="padding:4px 0;">${traveltime}</td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Traveltime:</td><td style="padding:4px 0;">${privateTraveltimeStr}</td></tr>
         <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Kilometers:</td><td style="padding:4px 0;">${km}</td></tr>
         <tr><td style="padding:4px 0;font-weight:600;vertical-align:top;">Notes:</td><td style="padding:4px 0;">${notes}</td></tr>`;
     }).join('');

@@ -28,26 +28,40 @@ export async function fetchTrips(registration, fromDate, toDate) {
   const reg = registration || config.cartrack.registration;
   if (!reg) throw new Error('No vehicle registration configured');
 
-  const url = new URL(`${baseUrl}/trips/${encodeURIComponent(reg)}`);
-  url.searchParams.set('start_timestamp', `${fromDate} 00:00:00`);
-  url.searchParams.set('end_timestamp', `${toDate} 23:59:59`);
+  const allTrips = [];
+  let page = 1;
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-    redirect: 'follow',
-  });
+  while (true) {
+    const url = new URL(`${baseUrl}/trips/${encodeURIComponent(reg)}`);
+    url.searchParams.set('start_timestamp', `${fromDate} 00:00:00`);
+    url.searchParams.set('end_timestamp', `${toDate} 23:59:59`);
+    url.searchParams.set('page', page);
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Cartrack API error ${res.status}: ${body}`);
+    const res = await fetch(url.toString(), {
+      headers: {
+        Authorization: authHeader,
+        Accept: 'application/json',
+      },
+      redirect: 'follow',
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Cartrack API error ${res.status}: ${body}`);
+    }
+
+    const json = await res.json();
+    const trips = json.data || [];
+    allTrips.push(...trips);
+
+    // Stop when we've reached the last page
+    const meta = json.meta || {};
+    const lastPage = meta.last_page ?? 1;
+    if (page >= lastPage || trips.length === 0) break;
+    page++;
   }
 
-  const json = await res.json();
-  const trips = json.data || [];
-  return trips.map(raw => mapTrip(raw, reg));
+  return allTrips.map(raw => mapTrip(raw, reg));
 }
 
 /**

@@ -12,7 +12,7 @@ echo.
 docker info >nul 2>&1
 if %errorlevel% equ 0 goto docker_ready
 
-echo [1/3] Starting Docker Desktop...
+echo [1/2] Starting Docker Desktop...
 start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 echo     Waiting for Docker daemon (up to 120 s)...
 set /a _wait=0
@@ -30,32 +30,25 @@ if !_wait! geq 120 (
 goto wait_docker
 
 :docker_ready
-echo [1/3] Docker daemon is up.
+echo [1/2] Docker daemon is up.
 echo.
 
 :: ── 2. Start / restart n8n container ────────────────────────────────────────
-echo [2/3] Starting n8n on port 5678...
-
+echo [2/2] Starting n8n...
 docker inspect n8n >nul 2>&1
 if %errorlevel% equ 0 (
     docker start n8n >nul 2>&1
-    echo     n8n container started (existing).
 ) else (
     docker volume create n8n_data >nul 2>&1
     docker run -d --name n8n --restart unless-stopped -p 5678:5678 -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n >nul 2>&1
-    echo     n8n container created and started.
 )
-echo     n8n UI  : http://localhost:5678
+echo     n8n ready at http://localhost:5678
 echo.
 
-:: ── 3. Start Node dev servers in THIS window ─────────────────────────────────
-echo [3/3] Starting dev servers (Ctrl+C to stop all)...
-echo     Server  : http://localhost:3001
-echo     Client  : http://localhost:5173
-echo     Calls   : http://localhost:5174/call-logger/
-echo.
+echo ============================================
+echo   Docker and n8n are running.
+echo   Now open a terminal in this folder and
+echo   run:  npm run dev
 echo ============================================
 echo.
-
-cd /d "%~dp0"
-npm run dev
+pause
