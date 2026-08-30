@@ -8,6 +8,10 @@
 #
 set -euo pipefail
 
+# systemd-run and some cron contexts start with no $HOME, which makes
+# "git config --global" fail with "fatal: $HOME not set".
+export HOME="${HOME:-/root}"
+
 REPO_URL="${REPO_URL:-https://github.com/Voltageza/EPRO-Trip-Manager.git}"
 BRANCH="${BRANCH:-main}"
 APP_USER="${APP_USER:-eprotrips}"

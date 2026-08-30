@@ -2,6 +2,10 @@
 # Pull the latest main, rebuild both frontends, restart. Run as root.
 set -euo pipefail
 
+# systemd-run and some cron contexts start with no $HOME, which makes
+# "git config --global" fail with "fatal: $HOME not set".
+export HOME="${HOME:-/root}"
+
 APP_DIR="${APP_DIR:-/opt/epro-trips/app}"
 BRANCH="${BRANCH:-main}"
 APP_USER="${APP_USER:-eprotrips}"
