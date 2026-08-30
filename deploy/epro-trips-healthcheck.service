@@ -1,0 +1,7 @@
+[Unit]
+Description=E-Pro Trip Manager health check
+After=epro-trips.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/epro-trips-healthcheck

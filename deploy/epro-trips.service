@@ -1,0 +1,34 @@
+[Unit]
+Description=E-Pro Trip Manager
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=eprotrips
+Group=eprotrips
+# cwd must be writable: puppeteer/Chromium writes temporary profiles
+WorkingDirectory=/var/lib/epro-trips
+ExecStart=/usr/bin/node /opt/epro-trips/app/server/src/index.js
+Environment=NODE_ENV=production
+# Use Debian's Chromium rather than a bundled download: apt pulls every shared
+# library it needs and keeps it patched.
+Environment=PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+Environment=PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+Restart=on-failure
+RestartSec=5
+
+# Hardening: code tree read-only, only the data dir is writable.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/epro-trips
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

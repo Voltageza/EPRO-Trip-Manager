@@ -26,7 +26,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 // Ensure uploads directory exists
-const uploadsDir = resolve(__dirname, '../uploads');
+const uploadsDir = config.uploadDir;
 if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
 
 app.use(cors());
@@ -84,8 +84,8 @@ cron.schedule(config.reminderCron, async () => {
   }
 });
 
-app.listen(config.port, () => {
-  console.log(`[server] E-Pro Trip Manager running on http://localhost:${config.port}`);
+app.listen(config.port, config.host, () => {
+  console.log(`[server] E-Pro Trip Manager running on http://${config.host}:${config.port}`);
   console.log(`[cron] Auto-sync scheduled: ${config.syncCron}`);
   console.log(`[cron] Email reminder scheduled: ${config.reminderCron}`);
 });

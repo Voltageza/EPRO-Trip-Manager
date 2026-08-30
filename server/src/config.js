@@ -7,7 +7,12 @@ dotenv.config({ path: resolve(__dirname, '../../.env') });
 
 export default {
   port: parseInt(process.env.PORT || '3001', 10),
-  dbPath: resolve(__dirname, '../../trips.db'),
+  // Bind loopback in production so nginx is the only way in.
+  host: process.env.HOST || '0.0.0.0',
+  // An absolute DB_PATH/UPLOAD_DIR wins over the in-repo default, which keeps
+  // production data outside the code tree where a deploy cannot touch it.
+  dbPath: resolve(__dirname, '../..', process.env.DB_PATH || './trips.db'),
+  uploadDir: resolve(__dirname, '../..', process.env.UPLOAD_DIR || './server/uploads'),
 
   cartrack: {
     baseUrl: process.env.CARTRACK_BASE_URL || 'https://fleetapi-za.cartrack.com/rest',

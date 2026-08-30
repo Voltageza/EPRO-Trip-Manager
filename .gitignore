@@ -1,12 +1,15 @@
 node_modules/
 dist/
 .env
-trips.db
-trips.db-shm
-trips.db-wal
+# Any SQLite database, anywhere - including deploy/trips-seed.db, which holds
+# live business data and must never be committed.
+*.db
+*.db-shm
+*.db-wal
 *.log
 Jobcard.docx
 jobcard.pdf
 nul
 server/uploads/
 .claude/
+_ul

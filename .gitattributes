@@ -1,0 +1,10 @@
+* text=auto
+
+# Deployment assets are consumed by Linux - CRLF would break the shebangs
+# ("bad interpreter: /bin/bash^M") and the systemd/nginx parsers.
+deploy/*.sh              text eol=lf
+deploy/*.js              text eol=lf
+deploy/*.conf            text eol=lf
+deploy/*.service         text eol=lf
+deploy/*.timer           text eol=lf
+.github/**/*.yml         text eol=lf

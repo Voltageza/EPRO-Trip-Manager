@@ -5,10 +5,11 @@ import { resolve, dirname, extname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import db from '../db.js';
+import config from '../config.js';
 import { fireWebhook } from '../services/webhookService.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const uploadsDir = resolve(__dirname, '../../uploads');
+const uploadsDir = config.uploadDir;
 if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
 
 const storage = multer.diskStorage({
