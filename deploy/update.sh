@@ -6,6 +6,11 @@ set -euo pipefail
 # "git config --global" fail with "fatal: $HOME not set".
 export HOME="${HOME:-/root}"
 
+# A deploy can replace this very script while bash is still reading it, which
+# truncates the rest of the run. Wrapping the body in braces forces bash to
+# parse the whole thing up front, so a mid-run rewrite cannot affect us.
+{
+
 APP_DIR="${APP_DIR:-/opt/epro-trips/app}"
 BRANCH="${BRANCH:-main}"
 APP_USER="${APP_USER:-eprotrips}"
@@ -64,3 +69,5 @@ echo "FAILED - the trip manager did not come back healthy" >&2
 systemctl status epro-trips --no-pager >&2 || true
 journalctl -u epro-trips -n 40 --no-pager >&2
 exit 1
+
+}
