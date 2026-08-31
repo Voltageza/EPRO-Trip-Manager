@@ -15,6 +15,12 @@ Environment=NODE_ENV=production
 # library it needs and keeps it patched.
 Environment=PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 Environment=PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# Chromium's crashpad handler needs a writable HOME or it aborts the launch with
+# "chrome_crashpad_handler: --database is required". The service user's real
+# home is under /opt, which ProtectSystem=strict makes read-only.
+Environment=HOME=/var/lib/epro-trips
+Environment=XDG_CONFIG_HOME=/var/lib/epro-trips/.config
+Environment=XDG_CACHE_HOME=/var/lib/epro-trips/.cache
 Restart=on-failure
 RestartSec=5
 

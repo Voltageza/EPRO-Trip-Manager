@@ -32,7 +32,7 @@ apt-get install -y -qq chromium sqlite3
 
 echo "==> Creating service user and directories"
 id -u "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --home-dir /opt/epro-trips --shell /usr/sbin/nologin "$APP_USER"
-mkdir -p "$APP_DIR" "$DATA_DIR/uploads" /var/backups/epro-trips
+mkdir -p "$APP_DIR" "$DATA_DIR/uploads" "$DATA_DIR/.config" "$DATA_DIR/.cache" /var/backups/epro-trips
 chown -R "$APP_USER:$APP_USER" /opt/epro-trips "$DATA_DIR"
 
 # Root-run git against a tree owned by the service user needs this.

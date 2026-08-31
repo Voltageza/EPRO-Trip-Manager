@@ -31,6 +31,21 @@ npm ci
 NODE_OPTIONS=--max-old-space-size=$NODE_BUILD_MEM npm run build
 chown -R "$APP_USER:$APP_USER" /opt/epro-trips
 
+echo "==> Refreshing deployment config"
+# Without this a change to the unit or the nginx block would sit in git and
+# never reach the running system.
+install -d -o "$APP_USER" -g "$APP_USER" /var/lib/epro-trips/.config /var/lib/epro-trips/.cache
+if ! cmp -s "$APP_DIR/deploy/epro-trips.service" /etc/systemd/system/epro-trips.service; then
+  install -m 644 "$APP_DIR/deploy/epro-trips.service" /etc/systemd/system/epro-trips.service
+  systemctl daemon-reload
+  echo "    systemd unit updated"
+fi
+if ! cmp -s "$APP_DIR/deploy/nginx-epro-trips.conf" /etc/nginx/sites-available/epro-trips; then
+  install -m 644 "$APP_DIR/deploy/nginx-epro-trips.conf" /etc/nginx/sites-available/epro-trips
+  nginx -t && systemctl reload nginx
+  echo "    nginx config updated"
+fi
+
 echo "==> Restarting"
 systemctl restart epro-trips
 
