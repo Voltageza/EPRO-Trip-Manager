@@ -97,13 +97,13 @@ export default function App() {
     });
   }
 
-  const loadTrips = useCallback(async (targetDate) => {
+  const loadTrips = useCallback(async (targetDate, { silent = false } = {}) => {
     setLoading(true);
-    setStatus({ message: '', type: 'info' });
+    if (!silent) setStatus({ message: '', type: 'info' });
     try {
       const data = await fetchTrips(targetDate, targetDate);
       setTrips(data);
-      if (data.length === 0) {
+      if (data.length === 0 && !silent) {
         setStatus({ message: 'No trips found for this date. Try syncing from Cartrack.', type: 'info' });
       }
     } catch (err) {
@@ -162,7 +162,7 @@ export default function App() {
         msg += ` (${result.errors.length} vehicle${result.errors.length !== 1 ? 's' : ''} failed)`;
       }
       setStatus({ message: msg, type: result.errors ? 'warning' : 'success' });
-      loadTrips(date);
+      loadTrips(date, { silent: true });
       loadUnclaimedTrips(date);
     }
   }
