@@ -259,8 +259,15 @@ export function generateWeeklyReportHtml(overrideFrom, overrideTo) {
   }
 
   // Build per-driver sections
-  const driverSections = Object.entries(byUser).map(([userId, trips]) => {
-    const driverName = trips[0].claimed_by_name || `User ${userId}`;
+  const driverSections = Object.entries(byUser).map(([userId, allTrips]) => {
+    const driverName = allTrips[0].claimed_by_name || `User ${userId}`;
+
+    // Cartrack sometimes logs a near-zero trip right after parking (GPS jitter).
+    // Drop those here so they don't get their own bogus job card and don't corrupt
+    // the "next trip" labour gap for the real job before them.
+    const trips = allTrips.filter(
+      (t) => !((t.distance_km || 0) < 0.3 && (t.duration_minutes || 0) <= 2)
+    );
 
     const jobEntries = trips.map((trip, idx) => {
       const linkedJob = getLinkedJob.get(trip.id);
