@@ -95,10 +95,11 @@ export async function deleteUserApi(id) {
 
 // ===== Trip API =====
 
-export async function fetchTrips(from, to) {
+export async function fetchTrips(from, to, registrations) {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
+  if (registrations && registrations.length > 0) params.set('registrations', registrations.join(','));
   const res = await authFetch(`${BASE}/trips?${params}`);
   if (!res.ok) throw new Error(`Failed to fetch trips: ${res.status}`);
   return res.json();

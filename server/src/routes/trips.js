@@ -171,10 +171,30 @@ router.post('/', (req, res) => {
   }
 });
 
-// GET /api/trips?from=YYYY-MM-DD&to=YYYY-MM-DD — trips claimed by current user
+// GET /api/trips?from=YYYY-MM-DD&to=YYYY-MM-DD[&registrations=REG1,REG2]
+// With registrations: every trip for those vehicles that day, any claim status.
+// Without: trips claimed by the current user (the old default, still used when
+// no vehicles are selected).
 router.get('/', (req, res) => {
   const { from, to } = defaultDateRange(req);
-  const trips = getMyTrips.all(from, to, req.user.id);
+  const regs = req.query.registrations
+    ? req.query.registrations.split(',').map(r => r.trim()).filter(Boolean)
+    : null;
+
+  let trips;
+  if (regs && regs.length > 0) {
+    const placeholders = regs.map(() => '?').join(',');
+    trips = db.prepare(`
+      SELECT t.*, u.display_name as claimed_by_name
+      FROM trips t
+      LEFT JOIN users u ON t.claimed_by_user_id = u.id
+      WHERE t.trip_date >= ? AND t.trip_date <= ? AND t.merged_into IS NULL
+        AND t.registration IN (${placeholders})
+      ORDER BY t.start_time ASC
+    `).all(from, to, ...regs);
+  } else {
+    trips = getMyTrips.all(from, to, req.user.id);
+  }
   res.json(trips.map(withExtras));
 });
 

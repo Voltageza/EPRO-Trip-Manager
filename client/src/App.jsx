@@ -97,21 +97,27 @@ export default function App() {
     });
   }
 
+  // "My Trips" shows every trip for the checked vehicles, any claim status —
+  // the sidebar selection is a real filter, not just a sync target.
   const loadTrips = useCallback(async (targetDate, { silent = false } = {}) => {
     setLoading(true);
     if (!silent) setStatus({ message: '', type: 'info' });
     try {
-      const data = await fetchTrips(targetDate, targetDate);
-      setTrips(data);
-      if (data.length === 0 && !silent) {
-        setStatus({ message: 'No trips found for this date. Try syncing from Cartrack.', type: 'info' });
+      if (selectedVehicles.length === 0) {
+        setTrips([]);
+      } else {
+        const data = await fetchTrips(targetDate, targetDate, selectedVehicles);
+        setTrips(data);
+        if (data.length === 0 && !silent) {
+          setStatus({ message: 'No trips found for this date. Try syncing from Cartrack.', type: 'info' });
+        }
       }
     } catch (err) {
       setStatus({ message: `Failed to load trips: ${err.message}`, type: 'error' });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedVehicles]);
 
   const loadUnclaimedTrips = useCallback(async (targetDate) => {
     try {
@@ -177,7 +183,7 @@ export default function App() {
     vehicleNames[v.registration] = v.description || v.registration;
   }
 
-  // My trips (claimed) — no vehicle filter needed, server returns only mine
+  // Trips for the currently selected vehicles (server already filtered by them)
   const myTrips = trips;
   const totalKm = myTrips.reduce((s, t) => s + (t.distance_km || 0), 0);
   const businessCount = myTrips.filter(t => t.is_business !== 0).length;
