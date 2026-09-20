@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
+
+const deleteTripsByDate = db.prepare('DELETE FROM trips WHERE trip_date = ?');
 
 const getMyTrips = db.prepare(`
   SELECT t.*, u.display_name as claimed_by_name
@@ -173,6 +176,17 @@ router.get('/', (req, res) => {
   const { from, to } = defaultDateRange(req);
   const trips = getMyTrips.all(from, to, req.user.id);
   res.json(trips.map(withExtras));
+});
+
+// DELETE /api/trips/by-date/:date — admin-only: wipe every trip for one day
+// (including merged/claimed ones) so it can be re-synced from Cartrack clean.
+router.delete('/by-date/:date', requireAdmin, (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+  }
+  const result = deleteTripsByDate.run(date);
+  res.json({ deleted: result.changes, date });
 });
 
 // GET /api/trips/unclaimed?from=YYYY-MM-DD&to=YYYY-MM-DD — unclaimed pool
