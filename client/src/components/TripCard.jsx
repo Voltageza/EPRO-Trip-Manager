@@ -298,7 +298,11 @@ export default function TripCard({
           ) : (
             <>
               <BusinessToggle trip={trip} onUpdate={onUpdate} />
-              {onRelease && (
+              {!trip.claimed_by_user_id && onClaim ? (
+                <button className="claim-btn" onClick={handleClaim} disabled={claiming} title="Claim this trip">
+                  {claiming ? '...' : 'Claim'}
+                </button>
+              ) : onRelease && (
                 <button className="release-btn" onClick={handleRelease} disabled={claiming} title="Release trip back to pool">
                   {claiming ? '...' : 'Release'}
                 </button>

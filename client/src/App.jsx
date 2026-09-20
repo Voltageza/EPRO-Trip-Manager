@@ -303,6 +303,7 @@ export default function App() {
                     vehicleNames={vehicleNames}
                     locations={locations}
                     onLocationAdded={refreshLocations}
+                    onTripClaim={handleClaim}
                     onTripRelease={handleRelease}
                   />
                 ))}
