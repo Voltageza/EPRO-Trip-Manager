@@ -60,9 +60,11 @@ const autoClaimStmt = db.prepare(`
  * Sync trips from Cartrack for a date range.
  * If registrations[] is provided, syncs those vehicles.
  * Otherwise falls back to active vehicles from the DB, then .env.
- * If userId is provided, newly synced unclaimed trips are auto-claimed for that user.
+ * If userId is provided, newly synced unclaimed trips are auto-claimed for that user,
+ * but only for their own default vehicle — syncing someone else's vehicle (e.g. an
+ * admin refreshing the whole fleet) must not claim that vehicle's trips for you.
  */
-export async function syncTrips(fromDate, toDate, registrations, userId) {
+export async function syncTrips(fromDate, toDate, registrations, userId, userDefaultVehicle) {
   const regs = registrations && registrations.length > 0
     ? registrations
     : getActiveRegistrations();
@@ -76,8 +78,8 @@ export async function syncTrips(fromDate, toDate, registrations, userId) {
       const trips = await fetchTrips(reg, fromDate, toDate);
       const synced = upsertMany(trips);
       totalSynced += synced;
-      // Auto-claim unclaimed trips for the syncing user
-      if (userId) {
+      // Auto-claim unclaimed trips for the syncing user, only for their own vehicle
+      if (userId && reg === userDefaultVehicle) {
         const now = new Date().toISOString();
         autoClaimStmt.run(userId, now, now, reg, fromDate, toDate);
       }
